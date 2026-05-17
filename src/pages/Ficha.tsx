@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, Camera, Upload, User, HeartPulse, Brain, BookOpen, Phone, ShieldCheck, CreditCard, Calendar } from 'lucide-react';
+import { ChevronLeft, Camera, User, HeartPulse, Brain, BookOpen, Phone, ShieldCheck, CreditCard } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 const Ficha: React.FC = () => {

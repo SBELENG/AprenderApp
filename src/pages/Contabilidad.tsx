@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, Download, Wallet, CreditCard, Banknote, Calendar, RefreshCw, BarChart, Loader2, Plus, X } from 'lucide-react';
+import { ChevronLeft, Download, CreditCard, Banknote, BarChart, Loader2, Plus, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { supabase } from '../lib/supabase';
 

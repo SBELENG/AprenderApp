@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, X, HeartPulse } from 'lucide-react';
+import { AlertTriangle, HeartPulse } from 'lucide-react';
 
 interface HealthAlertModalProps {
   isOpen: boolean;

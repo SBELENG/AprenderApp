@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, Search, User, Calendar, BookOpen, ChevronRight, MessageSquare, Loader2 } from 'lucide-react';
+import { ChevronLeft, Search, User, Calendar, ChevronRight, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 type Nota = {

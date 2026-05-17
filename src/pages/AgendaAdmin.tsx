@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, Download, FileText, CheckCircle, Loader2 } from 'lucide-react';
+import { ChevronLeft, Download, Loader2 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { supabase } from '../lib/supabase';
