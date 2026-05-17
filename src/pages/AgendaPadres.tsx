@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ChevronLeft, Calendar as CalendarIcon, Clock, AlertCircle, CheckCircle2, Download, Info, X } from 'lucide-react';
+import { ChevronLeft, Calendar as CalendarIcon, CheckCircle2, Download, Info, X } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
