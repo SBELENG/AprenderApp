@@ -75,14 +75,24 @@ const Intro: React.FC = () => {
             </div>
           </div>
 
-          <button 
-            className="btn btn-secondary btn-block" 
-            style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'center', gap: '10px', padding: '1rem' }}
-            onClick={() => navigate('/auth')}
-          >
-            Ingresar al Portal Familias
-            <ArrowRight size={20} />
-          </button>
+          <div className="flex-col gap-3" style={{ marginBottom: '2rem' }}>
+            <button 
+              className="btn btn-secondary btn-block" 
+              style={{ display: 'flex', justifyContent: 'center', gap: '10px', padding: '1rem' }}
+              onClick={() => navigate('/auth')}
+            >
+              Nueva Inscripción y Pago
+              <ArrowRight size={20} />
+            </button>
+            <button 
+              className="btn btn-outline btn-block" 
+              style={{ display: 'flex', justifyContent: 'center', gap: '10px', padding: '1rem', color: 'white', borderColor: 'rgba(255,255,255,0.3)' }}
+              onClick={() => navigate('/agenda')}
+            >
+              Agendar mis horas
+              <Clock size={20} />
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -105,8 +105,8 @@ const Ficha: React.FC = () => {
         if (pagoError) console.error('Error registrando pago:', pagoError);
       }
 
-      alert('¡Inscripción completada y guardada en la base de datos!');
-      navigate('/');
+      alert('¡Inscripción completada y guardada en la base de datos! Ahora puedes agendar tus turnos.');
+      navigate('/agenda');
     } catch (error: any) {
       console.error('Error guardando ficha:', error);
       alert('Error al guardar: ' + error.message);
