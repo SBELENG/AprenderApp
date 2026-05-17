@@ -1,14 +1,19 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, Calendar as CalendarIcon, Clock, AlertCircle } from 'lucide-react';
+import { ChevronLeft, Calendar as CalendarIcon, Clock, AlertCircle, CheckCircle2, Download } from 'lucide-react';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 // Feriados simulados (formato YYYY-MM-DD)
 const FERIADOS = ['2026-05-25', '2026-06-20'];
 
+type Reservation = { date: Date, shiftId: string, shiftLabel: string };
+
 const AgendaPadres: React.FC = () => {
   const navigate = useNavigate();
+  const [reservations, setReservations] = useState<Reservation[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [selectedShift, setSelectedShift] = useState<string | null>(null);
+  const [isConfirmed, setIsConfirmed] = useState(false);
 
   // Generar días del mes actual (simplificado para el mockup)
   const today = new Date('2026-05-16T10:00:00'); // Usamos la fecha actual simulada
@@ -35,18 +40,63 @@ const AgendaPadres: React.FC = () => {
     }
 
     setSelectedDate(date);
-    setSelectedShift(null); // Reset shift al cambiar de día
+    setSelectedDate(date);
   };
 
-  const handleReserve = () => {
-    if (selectedDate && selectedShift) {
-      alert(`¡Turno reservado con éxito para el ${selectedDate.toLocaleDateString()} a las ${selectedShift}!`);
-      navigate('/');
+  const handleToggleShift = (shiftId: string, shiftLabel: string) => {
+    if (!selectedDate) return;
+    const existingIndex = reservations.findIndex(r => r.date.getTime() === selectedDate.getTime() && r.shiftId === shiftId);
+    
+    if (existingIndex >= 0) {
+      setReservations(reservations.filter((_, i) => i !== existingIndex));
+    } else {
+      setReservations([...reservations, { date: selectedDate, shiftId, shiftLabel }]);
     }
   };
 
-  const isDaySelected = (day: number) => {
-    return selectedDate && selectedDate.getDate() === day;
+  const handleReserve = () => {
+    if (reservations.length > 0) {
+      setIsConfirmed(true);
+    }
+  };
+
+  const handleGeneratePDF = () => {
+    const doc = new jsPDF();
+    
+    doc.setFontSize(20);
+    doc.setTextColor(30, 58, 95);
+    doc.text("Comprobante de Reserva - Aprender", 14, 22);
+    
+    doc.setFontSize(12);
+    doc.setTextColor(100);
+    doc.text(`Fecha de emisión: ${new Date().toLocaleDateString()}`, 14, 32);
+    doc.text("Detalle de turnos agendados:", 14, 45);
+
+    const sortedRes = [...reservations].sort((a,b) => a.date.getTime() - b.date.getTime());
+    const tableData = sortedRes.map(r => [
+      r.date.toLocaleDateString(),
+      r.shiftLabel
+    ]);
+
+    (doc as any).autoTable({
+      startY: 50,
+      head: [['Fecha', 'Horario']],
+      body: tableData,
+      theme: 'grid',
+      headStyles: { fillColor: [30, 58, 95] }
+    });
+
+    doc.save("Comprobante_Reserva_Aprender.pdf");
+  };
+
+  const hasReservation = (day: number) => {
+    const d = new Date(currentYear, currentMonth, day).getTime();
+    return reservations.some(r => r.date.getTime() === d);
+  };
+
+  const isCurrentViewed = (day: number) => {
+    const d = new Date(currentYear, currentMonth, day).getTime();
+    return selectedDate && selectedDate.getTime() === d;
   };
 
   const isFeriado = (day: number) => {
@@ -130,19 +180,39 @@ const AgendaPadres: React.FC = () => {
           
           {daysArray.map(day => {
             const disabled = isDomingo(day) || isFeriado(day) || isPastOrToday(day);
-            const selected = isDaySelected(day);
+            const reserved = hasReservation(day);
+            const viewed = isCurrentViewed(day);
+            
+            let bg = 'white';
+            let color = 'var(--color-gray-800)';
+            let border = '1px solid var(--color-gray-300)';
+            
+            if (disabled) {
+              bg = 'var(--color-gray-100)';
+              color = 'var(--color-gray-300)';
+              border = '1px solid transparent';
+            } else if (reserved) {
+              bg = 'var(--color-secondary)';
+              color = 'white';
+              border = '1px solid var(--color-secondary)';
+            } else if (viewed) {
+              bg = '#E0F2FE';
+              color = 'var(--color-primary)';
+              border = '1px solid var(--color-primary)';
+            }
+
             return (
               <div 
                 key={day}
-                onClick={() => handleDayClick(day)}
+                onClick={() => !disabled && handleDayClick(day)}
                 style={{ 
                   aspectRatio: '1', 
                   display: 'flex', justifyContent: 'center', alignItems: 'center',
                   borderRadius: '8px',
-                  background: selected ? 'var(--color-secondary)' : disabled ? 'var(--color-gray-100)' : 'white',
-                  border: `1px solid ${selected ? 'var(--color-secondary)' : disabled ? 'transparent' : 'var(--color-gray-300)'}`,
-                  color: selected ? 'white' : disabled ? 'var(--color-gray-300)' : 'var(--color-gray-800)',
-                  fontWeight: selected ? 'bold' : 'normal',
+                  background: bg,
+                  border: border,
+                  color: color,
+                  fontWeight: reserved || viewed ? 'bold' : 'normal',
                   cursor: disabled ? 'not-allowed' : 'pointer',
                   position: 'relative'
                 }}
@@ -156,42 +226,82 @@ const AgendaPadres: React.FC = () => {
           })}
         </div>
 
-        {selectedDate && (
-          <div style={{ animation: 'fadeIn 0.3s' }}>
-            <h3 style={{ fontSize: '1.1rem', color: 'var(--color-primary)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <Clock size={20} color="var(--color-secondary)" />
-              2. Horarios disponibles
-            </h3>
-            
-            <div className="flex-col gap-4">
-              {availableShifts().map(shift => (
-                <div 
-                  key={shift.id}
-                  onClick={() => setSelectedShift(shift.id as 'manana' | 'tarde')}
-                  style={{ 
-                    border: `2px solid ${selectedShift === shift.id ? 'var(--color-secondary)' : 'var(--color-gray-300)'}`,
-                    borderRadius: '12px', padding: '1rem', cursor: 'pointer',
-                    background: selectedShift === shift.id ? 'var(--color-background)' : 'white',
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  <p style={{ margin: 0, fontWeight: 'bold', color: 'var(--color-primary)' }}>{shift.label}</p>
-                  <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--color-gray-500)' }}>Cupos disponibles: 12</p>
+        {!isConfirmed ? (
+          <>
+            {selectedDate && (
+              <div style={{ animation: 'fadeIn 0.3s' }}>
+                <h3 style={{ fontSize: '1.1rem', color: 'var(--color-primary)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Clock size={20} color="var(--color-secondary)" />
+                  2. Horarios para el {selectedDate.getDate()}
+                </h3>
+                
+                <div className="flex-col gap-3">
+                  {availableShifts().map(shift => {
+                    const isSelected = reservations.some(r => r.date.getTime() === selectedDate.getTime() && r.shiftId === shift.id);
+                    return (
+                      <div 
+                        key={shift.id}
+                        onClick={() => handleToggleShift(shift.id, shift.label)}
+                        style={{ 
+                          border: `2px solid ${isSelected ? 'var(--color-secondary)' : 'var(--color-gray-300)'}`,
+                          borderRadius: '12px', padding: '0.8rem 1rem', cursor: 'pointer',
+                          background: isSelected ? 'var(--color-background)' : 'white',
+                          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                          transition: 'all 0.2s'
+                        }}
+                      >
+                        <div>
+                          <p style={{ margin: 0, fontWeight: 'bold', color: 'var(--color-primary)' }}>{shift.label}</p>
+                          <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--color-gray-500)' }}>Cupos disponibles: 12</p>
+                        </div>
+                        {isSelected && <CheckCircle2 size={24} color="var(--color-secondary)" />}
+                      </div>
+                    );
+                  })}
                 </div>
-              ))}
+              </div>
+            )}
+
+            <div style={{ marginTop: 'auto', paddingTop: '2rem' }}>
+              <div style={{ marginBottom: '1rem', textAlign: 'center', fontSize: '0.9rem', color: 'var(--color-gray-500)' }}>
+                {reservations.length} turno(s) seleccionado(s)
+              </div>
+              <button 
+                className="btn btn-primary btn-block" 
+                disabled={reservations.length === 0}
+                onClick={handleReserve}
+              >
+                Confirmar Reservas
+              </button>
             </div>
+          </>
+        ) : (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', animation: 'fadeIn 0.3s', textAlign: 'center' }}>
+            <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#D1FAE5', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1.5rem' }}>
+              <CheckCircle2 size={40} color="#059669" />
+            </div>
+            <h2 style={{ color: 'var(--color-primary)', marginBottom: '0.5rem' }}>¡Turnos Confirmados!</h2>
+            <p style={{ color: 'var(--color-gray-500)', marginBottom: '2rem' }}>
+              Has agendado exitosamente {reservations.length} turno(s).
+            </p>
+            
+            <button 
+              className="btn btn-secondary btn-block" 
+              onClick={handleGeneratePDF}
+              style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', marginBottom: '1rem' }}
+            >
+              <Download size={20} />
+              Descargar Comprobante PDF
+            </button>
+
+            <button 
+              className="btn btn-outline btn-block" 
+              onClick={() => navigate('/')}
+            >
+              Volver al inicio
+            </button>
           </div>
         )}
-
-        <div style={{ marginTop: 'auto', paddingTop: '2rem' }}>
-          <button 
-            className="btn btn-primary btn-block" 
-            disabled={!selectedDate || !selectedShift}
-            onClick={handleReserve}
-          >
-            Confirmar Reserva
-          </button>
-        </div>
       </div>
     </div>
   );
