@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, Calendar as CalendarIcon, Clock, AlertCircle, CheckCircle2, Download } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { ChevronLeft, Calendar as CalendarIcon, Clock, AlertCircle, CheckCircle2, Download, Info } from 'lucide-react';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
@@ -11,9 +11,22 @@ type Reservation = { date: Date, shiftId: string, shiftLabel: string };
 
 const AgendaPadres: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const paymentState = location.state as { plan: string, childrenCount: number, durationCount?: number, total: number } | null;
+  
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isConfirmed, setIsConfirmed] = useState(false);
+
+  // Calcular turnos permitidos basados en el pago (por defecto 1 si no hay state)
+  const allowedShifts = paymentState 
+    ? (paymentState.plan === 'hora' 
+        ? (paymentState.durationCount || 1) 
+        : paymentState.plan === 'semana' 
+          ? 5 * (paymentState.durationCount || 1) 
+          : 20 * (paymentState.durationCount || 1))
+    : 100; // Si entran sin pago, sin límite o límite alto
+
 
   // Generar días del mes actual (simplificado para el mockup)
   const today = new Date('2026-05-16T10:00:00'); // Usamos la fecha actual simulada
@@ -50,6 +63,10 @@ const AgendaPadres: React.FC = () => {
     if (existingIndex >= 0) {
       setReservations(reservations.filter((_, i) => i !== existingIndex));
     } else {
+      if (reservations.length >= allowedShifts) {
+        alert(`Tu plan actual te permite agendar hasta ${allowedShifts} turno(s).`);
+        return;
+      }
       setReservations([...reservations, { date: selectedDate, shiftId, shiftLabel }]);
     }
   };
@@ -152,11 +169,16 @@ const AgendaPadres: React.FC = () => {
 
       <div style={{ padding: '1.5rem', flex: 1, display: 'flex', flexDirection: 'column' }}>
         
-        <div style={{ background: '#FFFBEB', padding: '1rem', borderRadius: '12px', marginBottom: '1.5rem', display: 'flex', gap: '1rem', alignItems: 'flex-start', border: '1px solid #FDE68A' }}>
-          <AlertCircle size={20} color="#D97706" style={{ flexShrink: 0, marginTop: '2px' }} />
-          <p style={{ margin: 0, fontSize: '0.85rem', color: '#92400E' }}>
-            Recuerda que para reservar debes tener un plan activo y pago confirmado.
-          </p>
+        <div style={{ background: '#EFF6FF', padding: '1rem', borderRadius: '12px', marginBottom: '1.5rem', display: 'flex', gap: '1rem', alignItems: 'flex-start', border: '1px solid #BFDBFE' }}>
+          <Info size={20} color="#1D4ED8" style={{ flexShrink: 0, marginTop: '2px' }} />
+          <div>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: '#1E3A8A', fontWeight: 'bold' }}>
+              Tu plan: {paymentState ? (paymentState.plan === 'hora' ? 'Por Hora' : paymentState.plan === 'semana' ? 'Semanal' : 'Mensual') : 'Registrado'}
+            </p>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: '#1E3A8A' }}>
+              Puedes agendar hasta <b>{allowedShifts} turno(s)</b>. Llevas {reservations.length} agendados.
+            </p>
+          </div>
         </div>
 
         <h3 style={{ fontSize: '1.1rem', color: 'var(--color-primary)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>

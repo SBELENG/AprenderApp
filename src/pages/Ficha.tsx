@@ -106,7 +106,7 @@ const Ficha: React.FC = () => {
       }
 
       alert('¡Inscripción completada y guardada en la base de datos! Ahora puedes agendar tus turnos.');
-      navigate('/agenda');
+      navigate('/agenda', { state: paymentState });
     } catch (error: any) {
       console.error('Error guardando ficha:', error);
       alert('Error al guardar: ' + error.message);
