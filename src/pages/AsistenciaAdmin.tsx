@@ -319,6 +319,21 @@ const AsistenciaAdmin: React.FC = () => {
               <FileEdit size={20} />
               Observaciones de la Maestra
             </h3>
+
+            {/* Alerta de Autorizados para Retiro */}
+            {(() => {
+              const alumno = alumnos.find(a => a.id === activeModalId);
+              if (alumno?.autorizados) {
+                return (
+                  <div style={{ background: '#FFFBEB', border: '1px solid #FCD34D', padding: '1rem', borderRadius: '12px', marginBottom: '1.5rem' }}>
+                    <p style={{ margin: 0, fontWeight: 'bold', color: '#B45309', fontSize: '0.85rem', textTransform: 'uppercase', marginBottom: '4px' }}>⚠️ Autorizados para retirar:</p>
+                    <p style={{ margin: 0, color: '#92400E', fontSize: '0.95rem' }}>{alumno.autorizados}</p>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+
             <p style={{ fontSize: '0.85rem', color: 'var(--color-gray-500)', marginBottom: '1rem' }}>
               Escribe qué tareas se realizaron o si hay alguna novedad. Esto se guardará en la ficha histórica del alumno y se enviará por notificación a los padres.
             </p>

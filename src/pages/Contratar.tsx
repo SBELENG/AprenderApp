@@ -9,8 +9,8 @@ const Contratar: React.FC = () => {
 
   const plans = [
     { id: 'hora', title: 'Por Hora (3hs)', price: 7000, icon: <Clock size={24} /> },
-    { id: 'semana', title: 'Semanal', price: 32000, icon: <Calendar size={24} /> },
-    { id: 'mes', title: 'Mensual', price: 120000, icon: <Calendar size={24} /> }
+    { id: 'semana', title: 'Semanal', price: 35000, icon: <Calendar size={24} /> },
+    { id: 'mes', title: 'Mensual', price: 130000, icon: <Calendar size={24} /> }
   ];
 
   // Calcular descuento (10% si hay 2 o más niños)

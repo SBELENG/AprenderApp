@@ -1,12 +1,15 @@
-import React, { useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { ChevronLeft, Camera, User, HeartPulse, Brain, BookOpen, Phone, ShieldCheck, CreditCard } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 const Ficha: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const paymentState = location.state as { plan: string, childrenCount: number, total: number } | null;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [sinProblemasSalud, setSinProblemasSalud] = useState(false);
   
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [formData, setFormData] = useState({
@@ -25,6 +28,19 @@ const Ficha: React.FC = () => {
     desempeno: '',
     asignaturas: ''
   });
+
+  useEffect(() => {
+    if (formData.nacimiento) {
+      const birthDate = new Date(formData.nacimiento);
+      const today = new Date();
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const m = today.getMonth() - birthDate.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+      }
+      setFormData(prev => ({ ...prev, edad: age.toString() }));
+    }
+  }, [formData.nacimiento]);
 
   const handlePhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -56,7 +72,7 @@ const Ficha: React.FC = () => {
     setIsSubmitting(true);
     
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('alumnos')
         .insert([{
           nombre: formData.nombre,
@@ -70,9 +86,24 @@ const Ficha: React.FC = () => {
           emergencia_contacto: formData.emergencia,
           autorizados_retiro: formData.autorizados,
           foto_url: photoPreview // Por ahora guardamos el base64, luego podemos usar Storage
-        }]);
+        }])
+        .select();
 
       if (error) throw error;
+
+      if (paymentState && data && data.length > 0) {
+        // Registrar el pago
+        const alumnoId = data[0].id;
+        const { error: pagoError } = await supabase
+          .from('transacciones')
+          .insert([{
+            alumno_id: alumnoId,
+            monto: paymentState.total / paymentState.childrenCount, // Si inscriben a varios en la misma PC
+            metodo: 'Mercado Pago', // Simplificado
+            fecha: new Date().toISOString().split('T')[0]
+          }]);
+        if (pagoError) console.error('Error registrando pago:', pagoError);
+      }
 
       alert('¡Inscripción completada y guardada en la base de datos!');
       navigate('/');
@@ -172,7 +203,7 @@ const Ficha: React.FC = () => {
             <div style={{ display: 'flex', gap: '1rem' }}>
               <div className="input-group" style={{ flex: 1 }}>
                 <label className="input-label">Edad (años)</label>
-                <input type="number" name="edad" value={formData.edad} onChange={handleInputChange} className="input-field" required min="5" max="14" />
+                <input type="number" name="edad" value={formData.edad} onChange={handleInputChange} className="input-field" readOnly style={{ background: 'var(--color-gray-100)' }} />
               </div>
               <div className="input-group" style={{ flex: 1 }}>
                 <label className="input-label">Grado Escolar</label>
@@ -262,11 +293,28 @@ const Ficha: React.FC = () => {
             </h3>
             
             <div className="input-group">
-              <label className="input-label">
-                <HeartPulse size={14} style={{ display: 'inline', marginRight: '4px' }} />
-                Estado de Salud / Alergias
+              <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                <input 
+                  type="checkbox" 
+                  checked={sinProblemasSalud} 
+                  onChange={(e) => {
+                    setSinProblemasSalud(e.target.checked);
+                    if (e.target.checked) setFormData(prev => ({ ...prev, salud: 'Ningún problema de salud' }));
+                    else setFormData(prev => ({ ...prev, salud: '' }));
+                  }} 
+                  style={{ width: '18px', height: '18px' }}
+                />
+                Ningún problema de salud conocido
               </label>
-              <textarea name="salud" value={formData.salud} onChange={handleInputChange} className="input-field" rows={2} placeholder="Indique si tiene alguna condición médica, alergia o medicación..."></textarea>
+              {!sinProblemasSalud && (
+                <div style={{ marginTop: '0.5rem' }}>
+                  <label className="input-label">
+                    <HeartPulse size={14} style={{ display: 'inline', marginRight: '4px' }} />
+                    Estado de Salud / Alergias
+                  </label>
+                  <textarea name="salud" value={formData.salud} onChange={handleInputChange} className="input-field" rows={2} placeholder="Indique si tiene alguna condición médica, alergia o medicación..."></textarea>
+                </div>
+              )}
             </div>
             
             <div className="input-group">
