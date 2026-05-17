@@ -6,24 +6,33 @@ const Contratar: React.FC = () => {
   const navigate = useNavigate();
   const [childrenCount, setChildrenCount] = useState(1);
   const [selectedPlan, setSelectedPlan] = useState<'hora' | 'semana' | 'mes' | null>(null);
+  const [durationCount, setDurationCount] = useState(1);
 
   const plans = [
-    { id: 'hora', title: 'Por Hora (3hs)', price: 7000, icon: <Clock size={24} /> },
-    { id: 'semana', title: 'Semanal', price: 35000, icon: <Calendar size={24} /> },
-    { id: 'mes', title: 'Mensual', price: 130000, icon: <Calendar size={24} /> }
+    { id: 'hora', title: 'Por Hora', price: 7000, icon: <Clock size={24} />, unit: 'horas' },
+    { id: 'semana', title: 'Semanal', price: 35000, icon: <Calendar size={24} />, unit: 'semanas' },
+    { id: 'mes', title: 'Mensual', price: 130000, icon: <Calendar size={24} />, unit: 'meses' }
   ];
 
   // Calcular descuento (10% si hay 2 o más niños)
   const hasDiscount = childrenCount >= 2;
   const discountMultiplier = hasDiscount ? 0.9 : 1;
 
-  const getPrice = (basePrice: number) => {
-    return basePrice * childrenCount * discountMultiplier;
+  const getPrice = (basePrice: number, includeDuration = true) => {
+    return basePrice * childrenCount * (includeDuration ? durationCount : 1) * discountMultiplier;
   };
 
   const handleNext = () => {
     if (selectedPlan) {
-      navigate('/pago', { state: { plan: selectedPlan, childrenCount, total: getPrice(plans.find(p => p.id === selectedPlan)!.price) } });
+      const plan = plans.find(p => p.id === selectedPlan)!;
+      navigate('/pago', { 
+        state: { 
+          plan: selectedPlan, 
+          childrenCount, 
+          durationCount,
+          total: getPrice(plan.price) 
+        } 
+      });
     }
   };
 
@@ -70,7 +79,12 @@ const Contratar: React.FC = () => {
             {plans.map((plan) => (
               <div 
                 key={plan.id}
-                onClick={() => setSelectedPlan(plan.id as any)}
+                onClick={() => {
+                  if (selectedPlan !== plan.id) {
+                    setSelectedPlan(plan.id as any);
+                    setDurationCount(1);
+                  }
+                }}
                 style={{ 
                   border: `2px solid ${selectedPlan === plan.id ? 'var(--color-secondary)' : 'var(--color-gray-300)'}`,
                   borderRadius: '12px',
@@ -92,16 +106,35 @@ const Contratar: React.FC = () => {
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <h4 style={{ margin: 0, color: 'var(--color-primary)', fontSize: '1.1rem' }}>
-                    ${getPrice(plan.price).toLocaleString()}
+                    ${(selectedPlan === plan.id ? getPrice(plan.price) : getPrice(plan.price, false)).toLocaleString()}
                   </h4>
                   {hasDiscount && <span style={{ fontSize: '0.8rem', color: 'var(--color-secondary)', textDecoration: 'line-through' }}>
-                    ${(plan.price * childrenCount).toLocaleString()}
+                    ${(plan.price * childrenCount * (selectedPlan === plan.id ? durationCount : 1)).toLocaleString()}
                   </span>}
                 </div>
               </div>
             ))}
           </div>
         </div>
+
+        {selectedPlan && (
+          <div style={{ marginBottom: '2rem' }}>
+            <h3 className="auth-title" style={{ fontSize: '1.2rem' }}>
+              3. ¿Cantidad de {plans.find(p => p.id === selectedPlan)?.unit}?
+            </h3>
+            <div className="flex items-center gap-4 mt-4">
+              <button 
+                onClick={() => setDurationCount(Math.max(1, durationCount - 1))}
+                style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid var(--color-gray-300)', background: 'white' }}
+              >-</button>
+              <span style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{durationCount}</span>
+              <button 
+                onClick={() => setDurationCount(durationCount + 1)}
+                style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid var(--color-gray-300)', background: 'white' }}
+              >+</button>
+            </div>
+          </div>
+        )}
 
         <button 
           className="btn btn-primary btn-block" 

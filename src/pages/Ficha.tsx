@@ -74,7 +74,7 @@ const Ficha: React.FC = () => {
     try {
       const { data, error } = await supabase
         .from('alumnos')
-        .insert([{
+        .upsert([{
           nombre: formData.nombre,
           dni: formData.dni,
           fecha_nacimiento: formData.nacimiento,
@@ -85,8 +85,8 @@ const Ficha: React.FC = () => {
           obra_social: formData.obraSocial,
           emergencia_contacto: formData.emergencia,
           autorizados_retiro: formData.autorizados,
-          foto_url: photoPreview // Por ahora guardamos el base64, luego podemos usar Storage
-        }])
+          foto_url: photoPreview
+        }], { onConflict: 'dni' })
         .select();
 
       if (error) throw error;
