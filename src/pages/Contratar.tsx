@@ -4,6 +4,8 @@ import { ChevronLeft, Users, Calendar, Clock, ArrowRight } from 'lucide-react';
 
 const Contratar: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const telefono = location.state?.telefono || '';
   const [childrenCount, setChildrenCount] = useState(1);
   const [selectedPlan, setSelectedPlan] = useState<'hora' | 'semana' | 'mes' | null>(null);
   const [durationCount, setDurationCount] = useState(1);

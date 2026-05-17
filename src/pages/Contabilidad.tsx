@@ -55,7 +55,7 @@ const Contabilidad: React.FC = () => {
       const mapped: Transaccion[] = (pagosData || []).map(p => ({
         id: p.id,
         fecha: p.fecha,
-        alumno: p.alumnos?.nombre || 'Alumno eliminado',
+        alumno: p.alumnos?.nombre ? p.alumnos.nombre : (p.alumno_id ? 'Alumno eliminado' : 'Inscripción Pendiente'),
         monto: p.monto,
         metodo: p.metodo,
         codigo_efectivo: p.codigo_efectivo
@@ -91,7 +91,7 @@ const Contabilidad: React.FC = () => {
   const handleAddPago = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPago.alumno_id) {
-      alert('Selecciona un alumno');
+      alert('Selecciona un alumno o marca como nuevo ingreso');
       return;
     }
 
@@ -99,7 +99,7 @@ const Contabilidad: React.FC = () => {
       const { error } = await supabase
         .from('transacciones')
         .insert([{
-          alumno_id: newPago.alumno_id,
+          alumno_id: newPago.alumno_id === 'nuevo' ? null : newPago.alumno_id,
           monto: newPago.monto,
           metodo: newPago.metodo,
           fecha: new Date().toISOString().split('T')[0],
@@ -265,6 +265,7 @@ const Contabilidad: React.FC = () => {
                   required
                 >
                   <option value="">Seleccionar alumno</option>
+                  <option value="nuevo">--- NUEVO INGRESO (Solo generar código) ---</option>
                   {alumnos.map(a => (
                     <option key={a.id} value={a.id}>{a.nombre}</option>
                   ))}

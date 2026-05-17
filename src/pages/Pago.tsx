@@ -25,7 +25,7 @@ const Pago: React.FC = () => {
       setTimeout(() => {
         setIsProcessing(false);
         alert('Simulación: Pago completado por Mercado Pago. Redirigiendo a ficha del alumno...');
-        navigate('/ficha', { state });
+        navigate('/ficha', { state: { ...state, metodo: 'Mercado Pago' } });
       }, 2000);
     } else {
       // Validar código de efectivo (8 caracteres)
@@ -37,7 +37,7 @@ const Pago: React.FC = () => {
       setTimeout(() => {
         setIsProcessing(false);
         alert('¡Código validado exitosamente! Pago registrado.');
-        navigate('/ficha', { state });
+        navigate('/ficha', { state: { ...state, metodo: 'Efectivo', codigo_efectivo: code } });
       }, 1500);
     }
   };

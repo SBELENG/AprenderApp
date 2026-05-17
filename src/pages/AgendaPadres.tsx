@@ -12,7 +12,7 @@ type Reservation = { date: Date, shiftId: string, shiftLabel: string };
 const AgendaPadres: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const paymentState = location.state as { plan: string, childrenCount: number, durationCount?: number, total: number } | null;
+  const paymentState = location.state as { plan: string, childrenCount: number, durationCount?: number, total: number, nombres?: string[] } | null;
   
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -92,7 +92,15 @@ const AgendaPadres: React.FC = () => {
     doc.setFontSize(12);
     doc.setTextColor(100);
     doc.text(`Fecha de emisión: ${new Date().toLocaleDateString()}`, 14, 32);
-    doc.text("Detalle de turnos agendados:", 14, 45);
+    
+    let tableStartY = 45;
+    if (paymentState && paymentState.nombres && paymentState.nombres.length > 0) {
+      doc.text(`Alumno/s: ${paymentState.nombres.join(', ')}`, 14, 40);
+      doc.text("Detalle de turnos agendados:", 14, 50);
+      tableStartY = 55;
+    } else {
+      doc.text("Detalle de turnos agendados:", 14, 45);
+    }
 
     const sortedRes = [...reservations].sort((a,b) => a.date.getTime() - b.date.getTime());
     const tableData = sortedRes.map(r => [
@@ -101,7 +109,7 @@ const AgendaPadres: React.FC = () => {
     ]);
 
     autoTable(doc, {
-      startY: 50,
+      startY: tableStartY,
       head: [['Fecha', 'Horario']],
       body: tableData,
       theme: 'grid',

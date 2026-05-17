@@ -6,10 +6,14 @@ import { supabase } from '../lib/supabase';
 const Ficha: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const paymentState = location.state as { plan: string, childrenCount: number, total: number } | null;
+  const paymentState = location.state as { plan: string, childrenCount: number, total: number, telefono?: string, metodo?: string, codigo_efectivo?: string } | null;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [sinProblemasSalud, setSinProblemasSalud] = useState(false);
+  const [currentChildIndex, setCurrentChildIndex] = useState(0);
+  const [familiaId, setFamiliaId] = useState<string | null>(null);
+  const [nombresAlumnos, setNombresAlumnos] = useState<string[]>([]);
+  const totalChildren = paymentState?.childrenCount || 1;
   
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [formData, setFormData] = useState({
@@ -72,7 +76,29 @@ const Ficha: React.FC = () => {
     setIsSubmitting(true);
     
     try {
-      const { data, error } = await supabase
+      let currentFamiliaId = familiaId;
+      
+      // 1. Guardar Familia si no existe en este ciclo
+      if (!currentFamiliaId && paymentState?.telefono) {
+        const { data: famData, error: famError } = await supabase
+          .from('familias')
+          .upsert([{
+            telefono: paymentState.telefono,
+            emergencia_contacto: formData.emergencia,
+            autorizados_retiro: formData.autorizados,
+            obra_social: formData.obraSocial
+          }], { onConflict: 'telefono' })
+          .select();
+          
+        if (famError) throw famError;
+        if (famData && famData.length > 0) {
+          currentFamiliaId = famData[0].id;
+          setFamiliaId(currentFamiliaId);
+        }
+      }
+
+      // 2. Guardar Alumno
+      const { data: alumData, error: alumError } = await supabase
         .from('alumnos')
         .upsert([{
           nombre: formData.nombre,
@@ -85,28 +111,67 @@ const Ficha: React.FC = () => {
           obra_social: formData.obraSocial,
           emergencia_contacto: formData.emergencia,
           autorizados_retiro: formData.autorizados,
-          foto_url: photoPreview
+          foto_url: photoPreview,
+          familia_id: currentFamiliaId
         }], { onConflict: 'dni' })
         .select();
 
-      if (error) throw error;
+      if (alumError) throw alumError;
 
-      if (paymentState && data && data.length > 0) {
-        // Registrar el pago
-        const alumnoId = data[0].id;
-        const { error: pagoError } = await supabase
-          .from('transacciones')
-          .insert([{
-            alumno_id: alumnoId,
-            monto: paymentState.total / paymentState.childrenCount, // Si inscriben a varios en la misma PC
-            metodo: 'Mercado Pago', // Simplificado
-            fecha: new Date().toISOString().split('T')[0]
-          }]);
-        if (pagoError) console.error('Error registrando pago:', pagoError);
+      // 3. Registrar Pago
+      if (paymentState && alumData && alumData.length > 0) {
+        if (paymentState.metodo === 'Efectivo' && paymentState.codigo_efectivo) {
+          if (currentChildIndex === 0) {
+            // Actualizar la transacción que ya creó la admin
+            const { error: pagoError } = await supabase
+              .from('transacciones')
+              .update({ alumno_id: alumData[0].id })
+              .eq('codigo_efectivo', paymentState.codigo_efectivo);
+            if (pagoError) console.error('Error registrando pago efectivo:', pagoError);
+          }
+        } else {
+          // Mercado Pago
+          const { error: pagoError } = await supabase
+            .from('transacciones')
+            .insert([{
+              alumno_id: alumData[0].id,
+              monto: paymentState.total / totalChildren,
+              metodo: paymentState.metodo || 'Mercado Pago',
+              fecha: new Date().toISOString().split('T')[0]
+            }]);
+          if (pagoError) console.error('Error registrando pago:', pagoError);
+        }
+      }
+
+      const nuevosNombres = [...nombresAlumnos, formData.nombre];
+      setNombresAlumnos(nuevosNombres);
+
+      // 4. Lógica de Hermanos (Ciclo)
+      if (currentChildIndex < totalChildren - 1) {
+        alert(`¡Ficha ${currentChildIndex + 1} guardada exitosamente! Ahora completa los datos del siguiente niño.`);
+        setFormData(prev => ({
+          ...prev,
+          nombre: '',
+          dni: '',
+          nacimiento: '',
+          edad: '',
+          grado: '',
+          turno: '',
+          escuela: '',
+          maestra: '',
+          salud: '',
+          desempeno: '',
+          asignaturas: ''
+        }));
+        setPhotoPreview(null);
+        setSinProblemasSalud(false);
+        setCurrentChildIndex(prev => prev + 1);
+        window.scrollTo(0, 0);
+        return;
       }
 
       alert('¡Inscripción completada y guardada en la base de datos! Ahora puedes agendar tus turnos.');
-      navigate('/agenda', { state: paymentState });
+      navigate('/agenda', { state: { ...paymentState, nombres: nuevosNombres } });
     } catch (error: any) {
       console.error('Error guardando ficha:', error);
       alert('Error al guardar: ' + error.message);
@@ -125,7 +190,9 @@ const Ficha: React.FC = () => {
         >
           <ChevronLeft size={28} />
         </button>
-        <h2 style={{ color: 'var(--color-primary)', marginTop: '0.5rem' }}>Ficha del Alumno</h2>
+        <h2 style={{ color: 'var(--color-primary)', marginTop: '0.5rem' }}>
+          Ficha del Alumno {totalChildren > 1 ? `(${currentChildIndex + 1} de ${totalChildren})` : ''}
+        </h2>
         <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--color-gray-500)' }}>Paso final de inscripción</p>
       </div>
 

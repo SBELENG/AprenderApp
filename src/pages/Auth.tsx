@@ -27,7 +27,7 @@ const Auth: React.FC = () => {
     // Simular verificación OTP
     setTimeout(() => {
       setIsLoading(false);
-      navigate('/contratar');
+      navigate('/contratar', { state: { telefono: phone } });
     }, 1500);
   };
 

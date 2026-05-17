@@ -6,12 +6,13 @@ const Intro: React.FC = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="auth-layout" style={{ backgroundColor: 'var(--color-primary)', color: 'white' }}>
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+    <div className="auth-layout" style={{ backgroundColor: 'var(--color-primary)', color: 'white', overflowY: 'auto' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
         
         {/* Imagen principal estratégica usando el recurso gráfico provisto */}
         <div style={{ 
-          height: '45vh', 
+          height: '35vh', 
+          minHeight: '200px',
           width: '100%', 
           backgroundImage: 'url("/recursos/Key Visual APRENDER.jpg")',
           backgroundSize: 'cover',
@@ -44,7 +45,7 @@ const Intro: React.FC = () => {
           </p>
 
           {/* Características */}
-          <div className="flex-col gap-4 mb-8" style={{ marginTop: 'auto' }}>
+          <div className="flex-col gap-3 mb-6" style={{ marginTop: '1rem' }}>
             <div className="flex items-center gap-4">
               <div style={{ background: 'rgba(255,255,255,0.1)', padding: '10px', borderRadius: '50%' }}>
                 <ShieldCheck size={24} color="var(--color-secondary)" />
@@ -76,7 +77,7 @@ const Intro: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex-col gap-3" style={{ marginBottom: '2rem' }}>
+          <div className="flex-col gap-3" style={{ marginBottom: '2rem', marginTop: 'auto' }}>
             <button 
               className="btn btn-secondary btn-block" 
               style={{ display: 'flex', justifyContent: 'center', gap: '10px', padding: '1rem' }}

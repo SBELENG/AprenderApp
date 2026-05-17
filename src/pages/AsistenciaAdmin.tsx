@@ -17,6 +17,7 @@ type Alumno = {
   dni?: string;
   emergencia?: string;
   autorizados?: string;
+  maestraNombre?: string;
 };
 
 type Maestra = {
@@ -84,7 +85,8 @@ const AsistenciaAdmin: React.FC = () => {
           salud: a.salud_info,
           dni: a.dni,
           emergencia: a.emergencia_contacto,
-          autorizados: a.autorizados_retiro
+          autorizados: a.autorizados_retiro,
+          maestraNombre: maestrasData?.find(m => m.id === asistencia?.maestra_id)?.nombre
         };
       });
 
@@ -143,8 +145,10 @@ const AsistenciaAdmin: React.FC = () => {
 
       if (error) throw error;
 
+      const maestraName = maestras.find(m => m.id === selectedMaestraId)?.nombre;
+
       setAlumnos(prev => prev.map(a => 
-        a.id === id ? { ...a, estado: 'Presente', horaIngreso: horaActual } : a
+        a.id === id ? { ...a, estado: 'Presente', horaIngreso: horaActual, maestraNombre: maestraName } : a
       ));
       
       showPush(`Notificación enviada a padres: "¡${alumno.nombre} ingresó a la academia a las ${horaActual}!"`);
@@ -307,6 +311,12 @@ const AsistenciaAdmin: React.FC = () => {
                 <div>
                   <p style={{ margin: 0, fontWeight: 'bold', color: 'var(--color-primary)', fontSize: '1.1rem' }}>{alumno.nombre}</p>
                   <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--color-gray-500)' }}>Turno: {alumno.turno}</p>
+                  {alumno.maestraNombre && (
+                    <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: '#10B981', fontWeight: 'bold' }}>
+                      <Users2 size={12} style={{ display: 'inline', marginRight: '4px' }} />
+                      A cargo de: {alumno.maestraNombre}
+                    </p>
+                  )}
                 </div>
                 <span style={{ 
                   display: 'inline-block', padding: '0.3rem 0.6rem', borderRadius: '100px', fontSize: '0.75rem', fontWeight: 'bold',
