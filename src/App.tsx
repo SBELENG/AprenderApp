@@ -1,5 +1,5 @@
 
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Intro from './pages/Intro';
 import Auth from './pages/Auth';
 import Contratar from './pages/Contratar';
@@ -23,6 +23,7 @@ function App() {
         <Route path="/pago" element={<Pago />} />
         <Route path="/ficha" element={<Ficha />} />
         <Route path="/agenda" element={<AgendaPadres />} />
+        <Route path="/admin" element={<Navigate to="/admin/asistencia" replace />} />
         <Route path="/admin/agenda" element={<AgendaAdmin />} />
         <Route path="/admin/asistencia" element={<AsistenciaAdmin />} />
         <Route path="/admin/contabilidad" element={<Contabilidad />} />

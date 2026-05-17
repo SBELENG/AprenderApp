@@ -50,7 +50,7 @@ const Contratar: React.FC = () => {
       </div>
 
       <div className="auth-content" style={{ display: 'flex', flexDirection: 'column' }}>
-        <div style={{ marginBottom: '2rem' }}>
+        <div style={{ marginBottom: '1.5rem' }}>
           <h3 className="auth-title" style={{ fontSize: '1.2rem' }}>1. ¿Cuántos niños asistirán?</h3>
           <div className="flex items-center gap-4 mt-4">
             <button 
@@ -72,7 +72,7 @@ const Contratar: React.FC = () => {
           </div>
         </div>
 
-        <div style={{ marginBottom: '2rem', flex: 1 }}>
+        <div style={{ marginBottom: '1.5rem', flex: 1 }}>
           <h3 className="auth-title" style={{ fontSize: '1.2rem', marginBottom: '1rem' }}>2. Selecciona la modalidad</h3>
           
           <div className="flex-col gap-4">
@@ -118,7 +118,7 @@ const Contratar: React.FC = () => {
         </div>
 
         {selectedPlan && (
-          <div style={{ marginBottom: '2rem' }}>
+          <div style={{ marginBottom: '1.5rem' }}>
             <h3 className="auth-title" style={{ fontSize: '1.2rem' }}>
               3. ¿Cantidad de {plans.find(p => p.id === selectedPlan)?.unit}?
             </h3>
@@ -140,7 +140,7 @@ const Contratar: React.FC = () => {
           className="btn btn-primary btn-block" 
           disabled={!selectedPlan}
           onClick={handleNext}
-          style={{ display: 'flex', justifyContent: 'center', gap: '10px' }}
+          style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginTop: 'auto' }}
         >
           Continuar al Pago
           <ArrowRight size={20} />

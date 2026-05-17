@@ -1,6 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
+  color-scheme: light;
   /* Paleta de colores principal */
   --color-primary: #1E3A5F;     /* Azul marino profundo */
   --color-secondary: #C8882A;   /* Dorado ámbar */
@@ -42,6 +43,7 @@ body {
 
 #root {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
 }
@@ -202,6 +204,7 @@ a:hover {
 /* Vistas de Autenticación (Mobile First) */
 .auth-layout {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   background-color: var(--color-background);

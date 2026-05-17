@@ -31,7 +31,8 @@ const Intro: React.FC = () => {
             <img 
               src="/recursos/letra A.png" 
               alt="Aprender Logo" 
-              style={{ width: '60px', height: '60px', borderRadius: '12px', background: 'white', padding: '5px' }} 
+              style={{ width: '60px', height: '60px', borderRadius: '12px', background: 'white', padding: '5px', cursor: 'pointer' }} 
+              onClick={() => navigate('/admin/asistencia')}
             />
           </div>
 

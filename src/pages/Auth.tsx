@@ -41,7 +41,13 @@ const Auth: React.FC = () => {
         >
           <ChevronLeft size={28} />
         </button>
-        <img src="/recursos/Diseño sin título (4).png" alt="Aprender Logo" className="auth-logo" />
+        <img 
+          src="/recursos/Diseño sin título (4).png" 
+          alt="Aprender Logo" 
+          className="auth-logo" 
+          style={{ cursor: 'pointer' }}
+          onClick={() => navigate('/admin/asistencia')}
+        />
       </div>
 
       {/* Content */}
