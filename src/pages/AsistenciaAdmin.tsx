@@ -19,11 +19,20 @@ type Alumno = {
   autorizados?: string;
 };
 
+type Maestra = {
+  id: string;
+  nombre: string;
+};
+
 const AsistenciaAdmin: React.FC = () => {
   const navigate = useNavigate();
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [alumnos, setAlumnos] = useState<Alumno[]>([]);
+  const [maestras, setMaestras] = useState<Maestra[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeModalId, setActiveModalId] = useState<string | null>(null);
+  const [activeIngresoModalId, setActiveIngresoModalId] = useState<string | null>(null);
+  const [selectedMaestraId, setSelectedMaestraId] = useState('');
   const [observacionTemp, setObservacionTemp] = useState('');
   const [pushNotification, setPushNotification] = useState<string | null>(null);
   const [isAdminAuthOpen, setIsAdminAuthOpen] = useState(false);
@@ -32,7 +41,7 @@ const AsistenciaAdmin: React.FC = () => {
 
   useEffect(() => {
     fetchAlumnos();
-  }, []);
+  }, [selectedDate]);
 
   const fetchAlumnos = async () => {
     setIsLoading(true);
@@ -45,12 +54,14 @@ const AsistenciaAdmin: React.FC = () => {
 
       if (alumnosError) throw alumnosError;
 
-      // 2. Obtener asistencia de hoy
-      const today = new Date().toISOString().split('T')[0];
+      const { data: maestrasData } = await supabase.from('maestras').select('id, nombre').order('nombre');
+      if (maestrasData) setMaestras(maestrasData);
+
+      // 2. Obtener asistencia
       const { data: asistenciaData, error: asistenciaError } = await supabase
         .from('asistencia')
         .select('*')
-        .eq('fecha', today);
+        .eq('fecha', selectedDate);
 
       if (asistenciaError) throw asistenciaError;
 
@@ -77,6 +88,13 @@ const AsistenciaAdmin: React.FC = () => {
         };
       });
 
+      mappedAlumnos.sort((a, b) => {
+        // Handle 'S/D' to always be at the end, otherwise sort by turno (hour)
+        if (a.turno === 'S/D') return 1;
+        if (b.turno === 'S/D') return -1;
+        return a.turno.localeCompare(b.turno);
+      });
+
       setAlumnos(mappedAlumnos);
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -90,14 +108,26 @@ const AsistenciaAdmin: React.FC = () => {
     setTimeout(() => setPushNotification(null), 4000);
   };
 
-  const handleIngreso = async (id: string) => {
+  const openIngresoModal = (id: string) => {
     const alumno = alumnos.find(a => a.id === id);
-    if (!alumno) return;
-
-    if (alumno.salud && !healthAlertAlumno) {
+    if (alumno?.salud && !healthAlertAlumno) {
       setHealthAlertAlumno(alumno);
       return;
     }
+    setActiveIngresoModalId(id);
+    setSelectedMaestraId('');
+  };
+
+  const handleConfirmarIngreso = async () => {
+    if (!activeIngresoModalId) return;
+    if (!selectedMaestraId) {
+      alert("Debes seleccionar una maestra a cargo.");
+      return;
+    }
+
+    const id = activeIngresoModalId;
+    const alumno = alumnos.find(a => a.id === id);
+    if (!alumno) return;
 
     const horaActual = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
     
@@ -107,7 +137,8 @@ const AsistenciaAdmin: React.FC = () => {
         .insert([{
           alumno_id: id,
           fecha: new Date().toISOString().split('T')[0],
-          hora_ingreso: horaActual
+          hora_ingreso: horaActual,
+          maestra_id: selectedMaestraId
         }]);
 
       if (error) throw error;
@@ -117,8 +148,9 @@ const AsistenciaAdmin: React.FC = () => {
       ));
       
       showPush(`Notificación enviada a padres: "¡${alumno.nombre} ingresó a la academia a las ${horaActual}!"`);
+      setActiveIngresoModalId(null);
     } catch (error: any) {
-      alert('Error al registrar ingreso: ' + error.message);
+      alert('Error al registrar ingreso (Asegúrate de agregar la columna maestra_id en Supabase): ' + error.message);
     } finally {
       setHealthAlertAlumno(null);
     }
@@ -137,7 +169,6 @@ const AsistenciaAdmin: React.FC = () => {
     }
 
     const horaActual = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-    const today = new Date().toISOString().split('T')[0];
     
     try {
       const { error } = await supabase
@@ -147,7 +178,7 @@ const AsistenciaAdmin: React.FC = () => {
           observaciones: observacionTemp
         })
         .eq('alumno_id', activeModalId)
-        .eq('fecha', today);
+        .eq('fecha', selectedDate);
 
       if (error) throw error;
 
@@ -156,7 +187,7 @@ const AsistenciaAdmin: React.FC = () => {
       ));
 
       const alumno = alumnos.find(a => a.id === activeModalId);
-      showPush(`Notificación enviada a padres: "¡${alumno?.nombre} fue retirado! Observación: ${observacionTemp}"`);
+      showPush(`Notificación enviada a padres: "¡${alumno?.nombre} fue retirado a las ${horaActual}! Observación: ${observacionTemp}"`);
     } catch (error: any) {
       alert('Error al registrar retiro: ' + error.message);
     } finally {
@@ -243,7 +274,16 @@ const AsistenciaAdmin: React.FC = () => {
       </div>
 
       <div style={{ padding: '1.5rem', flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <h3 style={{ fontSize: '1.1rem', color: 'var(--color-primary)', marginBottom: '1rem' }}>Alumnos del día</h3>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <h3 style={{ fontSize: '1.1rem', color: 'var(--color-primary)', margin: 0 }}>Alumnos del día</h3>
+          <input 
+            type="date" 
+            className="input-field" 
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            style={{ width: 'auto', padding: '0.4rem', fontSize: '0.85rem' }}
+          />
+        </div>
 
         {isLoading ? (
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '1rem', color: 'var(--color-gray-400)' }}>
@@ -282,7 +322,7 @@ const AsistenciaAdmin: React.FC = () => {
                 <button 
                   className="btn btn-block" 
                   style={{ background: '#10B981', color: 'white', display: 'flex', gap: '0.5rem', justifyContent: 'center' }}
-                  onClick={() => handleIngreso(alumno.id)}
+                  onClick={() => openIngresoModal(alumno.id)}
                 >
                   <UserCheck size={18} />
                   Marcar Ingreso
@@ -371,6 +411,51 @@ const AsistenciaAdmin: React.FC = () => {
         </div>
       )}
 
+      {/* Modal de Asignación de Maestra para Ingreso */}
+      {activeIngresoModalId && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.5)', zIndex: 100,
+          display: 'flex', alignItems: 'center', justifyContent: 'center'
+        }}>
+          <div style={{ 
+            background: 'white', width: '90%', maxWidth: '400px', padding: '2rem', 
+            borderRadius: '24px', animation: 'fadeIn 0.2s'
+          }}>
+            <h3 style={{ margin: 0, marginBottom: '0.5rem', color: 'var(--color-primary)' }}>Asignar Maestra</h3>
+            <p style={{ fontSize: '0.85rem', color: 'var(--color-gray-500)', marginBottom: '1.5rem' }}>
+              Selecciona quién estará a cargo de este alumno durante el turno actual.
+            </p>
+            
+            <select 
+              className="input-field" 
+              value={selectedMaestraId}
+              onChange={(e) => setSelectedMaestraId(e.target.value)}
+              style={{ marginBottom: '1.5rem' }}
+            >
+              <option value="">-- Seleccionar Maestra --</option>
+              {maestras.map(m => (
+                <option key={m.id} value={m.id}>{m.nombre}</option>
+              ))}
+            </select>
+
+            <div className="flex gap-4">
+              <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setActiveIngresoModalId(null)}>
+                Cancelar
+              </button>
+              <button 
+                className="btn btn-primary" 
+                style={{ flex: 1, display: 'flex', gap: '0.5rem', justifyContent: 'center', background: '#10B981', borderColor: '#10B981' }} 
+                onClick={handleConfirmarIngreso}
+              >
+                <UserCheck size={18} />
+                Confirmar Ingreso
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal de Autenticación Admin */}
       <AdminAuthModal 
         isOpen={isAdminAuthOpen}
@@ -383,7 +468,7 @@ const AsistenciaAdmin: React.FC = () => {
       <HealthAlertModal 
         isOpen={!!healthAlertAlumno}
         onClose={() => {
-          if (healthAlertAlumno) handleIngreso(healthAlertAlumno.id);
+          if (healthAlertAlumno) openIngresoModal(healthAlertAlumno.id);
         }}
         alumnoNombre={healthAlertAlumno?.nombre || ''}
         saludInfo={healthAlertAlumno?.salud || ''}

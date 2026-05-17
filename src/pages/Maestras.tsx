@@ -17,6 +17,8 @@ const Maestras: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState<number>(0);
+  const [jornales, setJornales] = useState<any[]>([]);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   
   // Modal states
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -49,13 +51,14 @@ const Maestras: React.FC = () => {
       const { data: jornalesData, error: jornalesError } = await supabase
         .from('jornales')
         .select('*')
-        .gte('fecha', startIso);
+        .order('fecha', { ascending: false });
 
       if (jornalesError) throw jornalesError;
+      setJornales(jornalesData || []);
 
       const mapped: Maestra[] = (maestrasData || []).map(m => {
         const horas = (jornalesData || [])
-          .filter(j => j.maestra_id === m.id)
+          .filter(j => j.maestra_id === m.id && j.pagado !== true)
           .reduce((acc, curr) => acc + Number(curr.horas), 0);
 
         return {
@@ -137,6 +140,26 @@ const Maestras: React.FC = () => {
       setEditingId(null);
     } catch (error: any) {
       alert('Error al actualizar valor hora: ' + error.message);
+    }
+  };
+
+  const handlePagarMaestra = async (id: string) => {
+    if (!confirm('¿Confirmas el pago a esta maestra? Esto limpiará el acumulado actual.')) return;
+    try {
+      const { error } = await supabase
+        .from('jornales')
+        .update({ pagado: true })
+        .eq('maestra_id', id)
+        .is('pagado', null); // Update only unpaid
+
+      if (error) throw error;
+      
+      // Update local state to avoid refetch
+      setJornales(prev => prev.map(j => j.maestra_id === id ? { ...j, pagado: true } : j));
+      fetchMaestras();
+      alert('Pago registrado y acumulado limpiado.');
+    } catch (error: any) {
+      alert('Error al procesar pago (Asegúrate de haber creado la columna "pagado" en Supabase): ' + error.message);
     }
   };
 
@@ -249,6 +272,27 @@ const Maestras: React.FC = () => {
                   </div>
                 </div>
 
+                {expandedId === maestra.id && (
+                  <div style={{ background: '#F9FAFB', padding: '1rem', borderRadius: '12px', marginBottom: '1rem', border: '1px solid #E5E7EB' }}>
+                    <p style={{ margin: '0 0 0.5rem', fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--color-primary)' }}>Detalle de días trabajados:</p>
+                    {jornales.filter(j => j.maestra_id === maestra.id && j.pagado !== true).length === 0 ? (
+                      <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--color-gray-500)' }}>No hay horas pendientes de pago.</p>
+                    ) : (
+                      <div className="flex-col gap-2">
+                        {jornales.filter(j => j.maestra_id === maestra.id && j.pagado !== true).map((j, idx) => (
+                          <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #E5E7EB', paddingBottom: '0.5rem', fontSize: '0.85rem' }}>
+                            <div>
+                              <span style={{ fontWeight: 'bold', color: 'var(--color-gray-800)' }}>{j.fecha}</span>
+                              <span style={{ color: 'var(--color-gray-500)', marginLeft: '0.5rem' }}>{j.observaciones || 'Sin detalle'}</span>
+                            </div>
+                            <span style={{ fontWeight: 'bold', color: 'var(--color-secondary)' }}>{j.horas} hs</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div style={{ 
                   borderTop: '1px dashed var(--color-gray-300)', paddingTop: '1rem', 
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center' 
@@ -258,13 +302,32 @@ const Maestras: React.FC = () => {
                     <p style={{ margin: 0, fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--color-secondary)' }}>
                       ${calculateJornal(maestra.horasMes, maestra.valorHora).toLocaleString()}
                     </p>
+                    <button 
+                      onClick={() => setExpandedId(expandedId === maestra.id ? null : maestra.id)}
+                      style={{ background: 'none', border: 'none', color: 'var(--color-primary)', fontSize: '0.75rem', textDecoration: 'underline', padding: 0, cursor: 'pointer', marginTop: '4px' }}
+                    >
+                      {expandedId === maestra.id ? 'Ocultar detalle' : 'Ver detalle por día'}
+                    </button>
                   </div>
-                  <button 
-                    onClick={() => handleDeleteMaestra(maestra.id)}
-                    style={{ background: 'none', border: 'none', color: '#EF4444', opacity: 0.5, cursor: 'pointer' }}
-                  >
-                    <Trash2 size={18} />
-                  </button>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button 
+                      onClick={() => handlePagarMaestra(maestra.id)}
+                      disabled={maestra.horasMes === 0}
+                      style={{ 
+                        background: '#10B981', color: 'white', border: 'none', borderRadius: '8px', 
+                        padding: '0.5rem 1rem', fontSize: '0.85rem', fontWeight: 'bold', cursor: 'pointer',
+                        opacity: maestra.horasMes === 0 ? 0.5 : 1
+                      }}
+                    >
+                      Pagar
+                    </button>
+                    <button 
+                      onClick={() => handleDeleteMaestra(maestra.id)}
+                      style={{ background: 'none', border: 'none', color: '#EF4444', opacity: 0.5, cursor: 'pointer' }}
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
