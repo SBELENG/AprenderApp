@@ -46,7 +46,6 @@ const Maestras: React.FC = () => {
       // 2. Fetch jornales to sum hours for current month
       const startOfMonth = new Date();
       startOfMonth.setDate(1);
-      const startIso = startOfMonth.toISOString().split('T')[0];
 
       const { data: jornalesData, error: jornalesError } = await supabase
         .from('jornales')

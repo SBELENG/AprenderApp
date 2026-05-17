@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { ChevronLeft, Users, Calendar, Clock, ArrowRight } from 'lucide-react';
 
 const Contratar: React.FC = () => {
@@ -32,7 +32,8 @@ const Contratar: React.FC = () => {
           plan: selectedPlan, 
           childrenCount, 
           durationCount,
-          total: getPrice(plan.price) 
+          total: getPrice(plan.price),
+          telefono
         } 
       });
     }

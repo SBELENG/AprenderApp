@@ -21,10 +21,10 @@ const AgendaPadres: React.FC = () => {
   // Calcular turnos permitidos basados en el pago (por defecto 1 si no hay state)
   const allowedShifts = paymentState 
     ? (paymentState.plan === 'hora' 
-        ? (paymentState.durationCount || 1) 
+        ? (paymentState.durationCount || 1) * (paymentState.childrenCount || 1)
         : paymentState.plan === 'semana' 
-          ? 5 * (paymentState.durationCount || 1) 
-          : 20 * (paymentState.durationCount || 1))
+          ? 5 * (paymentState.durationCount || 1) * (paymentState.childrenCount || 1)
+          : 20 * (paymentState.durationCount || 1) * (paymentState.childrenCount || 1))
     : 100; // Si entran sin pago, sin límite o límite alto
 
 
