@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, Bell, UserCheck, UserMinus, FileEdit, Check, BarChart3, Users2, LineChart, Loader2 } from 'lucide-react';
+import { ChevronLeft, Bell, UserCheck, UserMinus, FileEdit, Check, BarChart3, Users2, LineChart, Loader2, Settings } from 'lucide-react';
 import AdminAuthModal from '../components/AdminAuthModal';
 import HealthAlertModal from '../components/HealthAlertModal';
 import { supabase } from '../lib/supabase';
@@ -227,6 +227,17 @@ const AsistenciaAdmin: React.FC = () => {
           >
             <LineChart size={16} />
             Evolución
+          </button>
+          <button 
+            onClick={() => navigate('/admin/configuracion')}
+            style={{ 
+              background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', 
+              color: 'white', padding: '0.5rem 1rem', borderRadius: '8px', display: 'flex', 
+              alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', whiteSpace: 'nowrap'
+            }}
+          >
+            <Settings size={16} />
+            Configuración
           </button>
         </div>
       </div>

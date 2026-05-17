@@ -11,6 +11,7 @@ import AsistenciaAdmin from './pages/AsistenciaAdmin';
 import Contabilidad from './pages/Contabilidad';
 import Maestras from './pages/Maestras';
 import EvolucionAlumnos from './pages/EvolucionAlumnos';
+import ConfiguracionAdmin from './pages/ConfiguracionAdmin';
 
 function App() {
   return (
@@ -27,6 +28,7 @@ function App() {
         <Route path="/admin/contabilidad" element={<Contabilidad />} />
         <Route path="/admin/maestras" element={<Maestras />} />
         <Route path="/admin/evolucion" element={<EvolucionAlumnos />} />
+        <Route path="/admin/configuracion" element={<ConfiguracionAdmin />} />
       </Routes>
     </Router>
   );

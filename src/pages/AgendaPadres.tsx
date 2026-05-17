@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ChevronLeft, Calendar as CalendarIcon, Clock, AlertCircle, CheckCircle2, Download, Info } from 'lucide-react';
+import { ChevronLeft, Calendar as CalendarIcon, Clock, AlertCircle, CheckCircle2, Download, Info, X } from 'lucide-react';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 
 // Feriados simulados (formato YYYY-MM-DD)
 const FERIADOS = ['2026-05-25', '2026-06-20'];
@@ -37,6 +37,8 @@ const AgendaPadres: React.FC = () => {
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
   const daysArray = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
+  const [showShiftModal, setShowShiftModal] = useState(false);
+
   const handleDayClick = (day: number) => {
     const date = new Date(currentYear, currentMonth, day);
     const dateString = date.toISOString().split('T')[0];
@@ -54,6 +56,7 @@ const AgendaPadres: React.FC = () => {
 
     setSelectedDate(date);
     setSelectedDate(date);
+    setShowShiftModal(true);
   };
 
   const handleToggleShift = (shiftId: string, shiftLabel: string) => {
@@ -69,6 +72,8 @@ const AgendaPadres: React.FC = () => {
       }
       setReservations([...reservations, { date: selectedDate, shiftId, shiftLabel }]);
     }
+    // Opcional: cerrar el modal después de elegir un turno, o dejarlo abierto para elegir más
+    setShowShiftModal(false);
   };
 
   const handleReserve = () => {
@@ -95,7 +100,7 @@ const AgendaPadres: React.FC = () => {
       r.shiftLabel
     ]);
 
-    (doc as any).autoTable({
+    autoTable(doc, {
       startY: 50,
       head: [['Fecha', 'Horario']],
       body: tableData,
@@ -250,41 +255,7 @@ const AgendaPadres: React.FC = () => {
 
         {!isConfirmed ? (
           <>
-            {selectedDate && (
-              <div style={{ animation: 'fadeIn 0.3s' }}>
-                <h3 style={{ fontSize: '1.1rem', color: 'var(--color-primary)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Clock size={20} color="var(--color-secondary)" />
-                  2. Horarios para el {selectedDate.getDate()}
-                </h3>
-                
-                <div className="flex-col gap-3">
-                  {availableShifts().map(shift => {
-                    const isSelected = reservations.some(r => r.date.getTime() === selectedDate.getTime() && r.shiftId === shift.id);
-                    return (
-                      <div 
-                        key={shift.id}
-                        onClick={() => handleToggleShift(shift.id, shift.label)}
-                        style={{ 
-                          border: `2px solid ${isSelected ? 'var(--color-secondary)' : 'var(--color-gray-300)'}`,
-                          borderRadius: '12px', padding: '0.8rem 1rem', cursor: 'pointer',
-                          background: isSelected ? 'var(--color-background)' : 'white',
-                          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                          transition: 'all 0.2s'
-                        }}
-                      >
-                        <div>
-                          <p style={{ margin: 0, fontWeight: 'bold', color: 'var(--color-primary)' }}>{shift.label}</p>
-                          <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--color-gray-500)' }}>Cupos disponibles: 12</p>
-                        </div>
-                        {isSelected && <CheckCircle2 size={24} color="var(--color-secondary)" />}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            <div style={{ marginTop: 'auto', paddingTop: '2rem' }}>
+            <div style={{ marginTop: 'auto', paddingTop: '1rem' }}>
               <div style={{ marginBottom: '1rem', textAlign: 'center', fontSize: '0.9rem', color: 'var(--color-gray-500)' }}>
                 {reservations.length} turno(s) seleccionado(s)
               </div>
@@ -325,6 +296,53 @@ const AgendaPadres: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Modal de Selección de Turno */}
+      {showShiftModal && selectedDate && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.5)', zIndex: 1000,
+          display: 'flex', justifyContent: 'center', alignItems: 'center',
+          padding: '1rem'
+        }}>
+          <div style={{
+            background: 'white', borderRadius: '20px', width: '100%', maxWidth: '400px',
+            padding: '1.5rem', animation: 'slideUp 0.3s ease-out'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h3 style={{ margin: 0, color: 'var(--color-primary)' }}>Turnos - {selectedDate.getDate()} de Mayo</h3>
+              <button onClick={() => setShowShiftModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+                <X size={24} color="var(--color-gray-500)" />
+              </button>
+            </div>
+            
+            <div className="flex-col gap-3">
+              {availableShifts().map(shift => {
+                const isSelected = reservations.some(r => r.date.getTime() === selectedDate.getTime() && r.shiftId === shift.id);
+                return (
+                  <div 
+                    key={shift.id}
+                    onClick={() => handleToggleShift(shift.id, shift.label)}
+                    style={{ 
+                      border: `2px solid ${isSelected ? 'var(--color-secondary)' : 'var(--color-gray-300)'}`,
+                      borderRadius: '12px', padding: '1rem', cursor: 'pointer',
+                      background: isSelected ? 'var(--color-background)' : 'white',
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                    }}
+                  >
+                    <div>
+                      <p style={{ margin: 0, fontWeight: 'bold', color: 'var(--color-primary)' }}>{shift.label}</p>
+                      <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--color-gray-500)' }}>Cupos: 12</p>
+                    </div>
+                    {isSelected && <CheckCircle2 size={24} color="var(--color-secondary)" />}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
