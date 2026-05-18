@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { ChevronLeft, Calendar as CalendarIcon, CheckCircle2, Download, Info, X } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { supabase } from '../lib/supabase';
 
 // Feriados simulados (formato YYYY-MM-DD)
 const FERIADOS = ['2026-05-25', '2026-06-20'];
@@ -89,9 +90,49 @@ const AgendaPadres: React.FC = () => {
     }
   };
 
-  const handleReserve = () => {
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleReserve = async () => {
     if (reservations.length > 0) {
-      setIsConfirmed(true);
+      setIsSaving(true);
+      try {
+        // Asignar nombres a los turnos para guardar en DB
+        const sortedRes = [...reservations].sort((a,b) => a.date.getTime() - b.date.getTime());
+        const shiftCounts: Record<string, number> = {};
+        
+        const reservasToInsert = sortedRes.map(r => {
+          const key = `${r.date.getTime()}-${r.shiftId}`;
+          const nameIndex = shiftCounts[key] || 0;
+          shiftCounts[key] = nameIndex + 1;
+          
+          let assignedName = "Alumno";
+          if (paymentState?.nombres && paymentState.nombres.length > 0) {
+            assignedName = paymentState.nombres[Math.min(nameIndex, paymentState.nombres.length - 1)];
+          }
+
+          // Convertir la fecha a formato local YYYY-MM-DD correcto
+          const fechaLocal = new Date(r.date.getTime() - (r.date.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+
+          return {
+            alumno_nombre: assignedName,
+            fecha: fechaLocal,
+            horario: r.shiftLabel
+          };
+        });
+
+        const { error } = await supabase.from('reservas').insert(reservasToInsert);
+        
+        if (error) {
+          console.error('Error guardando reservas:', error);
+          alert('Hubo un error guardando las reservas en la base de datos (asegúrate de haber creado la tabla "reservas").');
+        }
+        
+        setIsConfirmed(true);
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setIsSaving(false);
+      }
     }
   };
 
@@ -298,10 +339,10 @@ const AgendaPadres: React.FC = () => {
               </div>
               <button 
                 className="btn btn-primary btn-block" 
-                disabled={reservations.length === 0}
+                disabled={reservations.length === 0 || isSaving}
                 onClick={handleReserve}
               >
-                Confirmar Reservas
+                {isSaving ? 'Guardando...' : 'Confirmar Reservas'}
               </button>
             </div>
           </>

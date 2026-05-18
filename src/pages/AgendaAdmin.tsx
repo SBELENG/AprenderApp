@@ -26,35 +26,43 @@ const AgendaAdmin: React.FC = () => {
   const fetchAsistencia = async () => {
     setIsLoading(true);
     try {
-      // 1. Fetch alumnos
-      const { data: alumnosData, error: alumnosError } = await supabase
-        .from('alumnos')
+      // 1. Fetch reservas para el día
+      const { data: reservasData, error: reservasError } = await supabase
+        .from('reservas')
         .select('*')
-        .order('nombre');
+        .eq('fecha', selectedDate)
+        .order('horario');
 
-      if (alumnosError) throw alumnosError;
+      if (reservasError) throw reservasError;
 
-      // 2. Fetch assistance for selected date
-      const { data: asistenciaData, error: asistenciaError } = await supabase
+      // 2. Fetch alumnos para cruzar datos (grado, maestra fija si la hay)
+      const { data: alumnosData } = await supabase.from('alumnos').select('nombre, grado, maestra_grado, id');
+      
+      // 3. Fetch asistencia real para ver si ya llegaron
+      const { data: asistenciaData } = await supabase
         .from('asistencia')
         .select('*')
         .eq('fecha', selectedDate);
 
-      if (asistenciaError) throw asistenciaError;
-
-      // 3. Map
-      const mapped: AsistenciaRecord[] = alumnosData.map(a => {
-        const asis = asistenciaData?.find(as => as.alumno_id === a.id);
-        let estado = 'Ausente';
-        if (asis) {
-          estado = asis.hora_retiro ? 'Retirado' : 'Presente';
+      // 4. Mapear
+      const mapped: AsistenciaRecord[] = (reservasData || []).map(r => {
+        // Buscar el alumno por nombre (ya que la reserva guarda el nombre por el array)
+        const alumnoInfo = alumnosData?.find(a => a.nombre === r.alumno_nombre);
+        
+        // Buscar si ya marcó ingreso/retiro
+        let estado = 'Pendiente';
+        if (alumnoInfo && asistenciaData) {
+          const asis = asistenciaData.find(as => as.alumno_id === alumnoInfo.id);
+          if (asis) {
+            estado = asis.hora_retiro ? 'Retirado' : 'Presente';
+          }
         }
 
         return {
-          nombre: a.nombre,
-          grado: a.grado || 'S/D',
-          turno: 'Mañana', // Podríamos agregar turno a la tabla alumnos
-          maestra: a.maestra_grado || 'S/D',
+          nombre: r.alumno_nombre,
+          grado: alumnoInfo?.grado || 'S/D',
+          turno: r.horario, // AHORA MOSTRAMOS EL HORARIO REAL DE LA RESERVA
+          maestra: alumnoInfo?.maestra_grado || 'S/D',
           estado
         };
       });
@@ -85,7 +93,7 @@ const AgendaAdmin: React.FC = () => {
     const tableRows = asistencia.map(record => [
       record.nombre,
       record.grado,
-      record.turno,
+      record.turno, // Esto ahora es el horario (ej: 14:00 a 15:00 hs)
       record.maestra,
       record.estado
     ]);
@@ -174,8 +182,8 @@ const AgendaAdmin: React.FC = () => {
                 <div style={{ textAlign: 'right' }}>
                   <span style={{ 
                     display: 'inline-block', padding: '0.2rem 0.5rem', borderRadius: '100px', fontSize: '0.75rem', fontWeight: 'bold',
-                    background: alumno.estado === 'Presente' ? '#D1FAE5' : alumno.estado === 'Ausente' ? '#FEE2E2' : alumno.estado === 'Retirado' ? '#E5E7EB' : '#FEF3C7',
-                    color: alumno.estado === 'Presente' ? '#065F46' : alumno.estado === 'Ausente' ? '#991B1B' : alumno.estado === 'Retirado' ? '#374151' : '#92400E',
+                    background: alumno.estado === 'Presente' ? '#D1FAE5' : alumno.estado === 'Pendiente' ? '#FEE2E2' : alumno.estado === 'Retirado' ? '#E5E7EB' : '#FEF3C7',
+                    color: alumno.estado === 'Presente' ? '#065F46' : alumno.estado === 'Pendiente' ? '#991B1B' : alumno.estado === 'Retirado' ? '#374151' : '#92400E',
                   }}>
                     {alumno.estado}
                   </span>
