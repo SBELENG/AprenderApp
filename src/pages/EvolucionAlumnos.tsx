@@ -49,7 +49,7 @@ const EvolucionAlumnos: React.FC = () => {
       try {
         const { data: alumnosData, error: alumnosError } = await supabase
           .from('alumnos')
-          .select('*')
+          .select('id, nombre, grado, escuela, dni, fecha_nacimiento, emergencia_contacto, autorizados_retiro, obra_social')
           .order('nombre');
 
         if (alumnosError) throw alumnosError;

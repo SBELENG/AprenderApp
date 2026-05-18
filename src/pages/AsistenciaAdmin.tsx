@@ -58,7 +58,7 @@ const AsistenciaAdmin: React.FC = () => {
         // 1. Obtener todos los alumnos
         const { data: alumnosData, error: alumnosError } = await supabase
           .from('alumnos')
-          .select('*')
+          .select('id, nombre, grado, salud_info, dni, emergencia_contacto, autorizados_retiro')
           .order('nombre');
 
         if (alumnosError) throw alumnosError;
