@@ -48,79 +48,94 @@ const AsistenciaAdmin: React.FC = () => {
 
   const fetchAlumnos = async () => {
     setIsLoading(true);
-    try {
-      // 1. Obtener todos los alumnos
-      const { data: alumnosData, error: alumnosError } = await supabase
-        .from('alumnos')
-        .select('*')
-        .order('nombre');
+    setError(null);
 
-      if (alumnosError) throw alumnosError;
+    const maxRetries = 2;
+    let attempt = 0;
 
-      const { data: maestrasData } = await supabase.from('maestras').select('id, nombre').order('nombre');
-      if (maestrasData) setMaestras(maestrasData);
+    while (attempt <= maxRetries) {
+      try {
+        // 1. Obtener todos los alumnos
+        const { data: alumnosData, error: alumnosError } = await supabase
+          .from('alumnos')
+          .select('*')
+          .order('nombre');
 
-      // 2. Obtener asistencia
-      const { data: asistenciaData, error: asistenciaError } = await supabase
-        .from('asistencia')
-        .select('*')
-        .eq('fecha', selectedDate);
+        if (alumnosError) throw alumnosError;
 
-      if (asistenciaError) throw asistenciaError;
+        const { data: maestrasData } = await supabase.from('maestras').select('id, nombre').order('nombre');
+        if (maestrasData) setMaestras(maestrasData);
 
-      // 2.5 Obtener reservas del día
-      const { data: reservasData } = await supabase
-        .from('reservas')
-        .select('*')
-        .eq('fecha', selectedDate);
+        // 2. Obtener asistencia
+        const { data: asistenciaData, error: asistenciaError } = await supabase
+          .from('asistencia')
+          .select('*')
+          .eq('fecha', selectedDate);
 
-      // Filtrar alumnos que tengan reserva para este día O que ya tengan registro de asistencia
-      const bookedNames = new Set(reservasData?.map(r => r.alumno_nombre.trim().toLowerCase()) || []);
-      const attendedIds = new Set(asistenciaData?.map(as => as.alumno_id) || []);
+        if (asistenciaError) throw asistenciaError;
 
-      const filteredAlumnos = alumnosData.filter(a => 
-        bookedNames.has(a.nombre.trim().toLowerCase()) || attendedIds.has(a.id)
-      );
+        // 2.5 Obtener reservas del día
+        const { data: reservasData } = await supabase
+          .from('reservas')
+          .select('*')
+          .eq('fecha', selectedDate);
 
-      // 3. Mapear datos
-      const mappedAlumnos: Alumno[] = filteredAlumnos.map(a => {
-        const asistencia = asistenciaData?.find(as => as.alumno_id === a.id);
-        const reserva = reservasData?.find(r => r.alumno_nombre.trim().toLowerCase() === a.nombre.trim().toLowerCase());
-        let estado: 'Pendiente' | 'Presente' | 'Retirado' = 'Pendiente';
-        if (asistencia) {
-          estado = asistencia.hora_retiro ? 'Retirado' : 'Presente';
+        // Filtrar alumnos que tengan reserva para este día O que ya tengan registro de asistencia
+        const bookedNames = new Set(reservasData?.map(r => r.alumno_nombre.trim().toLowerCase()) || []);
+        const attendedIds = new Set(asistenciaData?.map(as => as.alumno_id) || []);
+
+        const filteredAlumnos = alumnosData.filter(a => 
+          bookedNames.has(a.nombre.trim().toLowerCase()) || attendedIds.has(a.id)
+        );
+
+        // 3. Mapear datos
+        const mappedAlumnos: Alumno[] = filteredAlumnos.map(a => {
+          const asistencia = asistenciaData?.find(as => as.alumno_id === a.id);
+          const reserva = reservasData?.find(r => r.alumno_nombre.trim().toLowerCase() === a.nombre.trim().toLowerCase());
+          let estado: 'Pendiente' | 'Presente' | 'Retirado' = 'Pendiente';
+          if (asistencia) {
+            estado = asistencia.hora_retiro ? 'Retirado' : 'Presente';
+          }
+
+          return {
+            id: a.id,
+            nombre: a.nombre,
+            turno: reserva?.horario || 'S/D', // AHORA turno ES EL HORARIO DE RESERVA
+            grado: a.grado || 'S/D', // AHORA grado ES EL GRADO ESCOLAR REAL
+            estado,
+            horaIngreso: asistencia?.hora_ingreso,
+            horaRetiro: asistencia?.hora_retiro,
+            observaciones: asistencia?.observaciones,
+            salud: a.salud_info,
+            dni: a.dni,
+            emergencia: a.emergencia_contacto,
+            autorizados: a.autorizados_retiro,
+            maestraNombre: maestrasData?.find(m => m.id === asistencia?.maestra_id)?.nombre
+          };
+        });
+
+        mappedAlumnos.sort((a, b) => {
+          // Handle 'S/D' to always be at the end, otherwise sort by turno (hour)
+          if (a.turno === 'S/D') return 1;
+          if (b.turno === 'S/D') return -1;
+          return a.turno.localeCompare(b.turno);
+        });
+
+        setAlumnos(mappedAlumnos);
+        return; // Success, exit retry loop
+      } catch (err: any) {
+        attempt++;
+        console.warn(`Intento ${attempt} de carga de asistencia fallido:`, err);
+        if (attempt > maxRetries) {
+          setError('No se pudo conectar con el servidor. Si el sistema estuvo inactivo, es probable que la base de datos se esté iniciando. Por favor, reintenta.');
+        } else {
+          await new Promise(resolve => setTimeout(resolve, 1500));
         }
-
-        return {
-          id: a.id,
-          nombre: a.nombre,
-          turno: reserva?.horario || 'S/D', // AHORA turno ES EL HORARIO DE RESERVA
-          grado: a.grado || 'S/D', // AHORA grado ES EL GRADO ESCOLAR REAL
-          estado,
-          horaIngreso: asistencia?.hora_ingreso,
-          horaRetiro: asistencia?.hora_retiro,
-          observaciones: asistencia?.observaciones,
-          salud: a.salud_info,
-          dni: a.dni,
-          emergencia: a.emergencia_contacto,
-          autorizados: a.autorizados_retiro,
-          maestraNombre: maestrasData?.find(m => m.id === asistencia?.maestra_id)?.nombre
-        };
-      });
-
-      mappedAlumnos.sort((a, b) => {
-        // Handle 'S/D' to always be at the end, otherwise sort by turno (hour)
-        if (a.turno === 'S/D') return 1;
-        if (b.turno === 'S/D') return -1;
-        return a.turno.localeCompare(b.turno);
-      });
-
-      setAlumnos(mappedAlumnos);
-    } catch (err: any) {
-      console.error('Error fetching data:', err);
-      setError('No se pudo conectar con el servidor. Si el sistema estuvo inactivo, es probable que la base de datos se esté iniciando. Por favor, reintenta.');
-    } finally {
-      setIsLoading(false);
+      } finally {
+        if (attempt > maxRetries) {
+          setIsLoading(false);
+        }
+      }
     }
   };
 

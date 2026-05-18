@@ -41,50 +41,64 @@ const EvolucionAlumnos: React.FC = () => {
   const fetchAlumnos = async () => {
     setIsLoading(true);
     setError(null);
-    try {
-      const { data: alumnosData, error: alumnosError } = await supabase
-        .from('alumnos')
-        .select('*')
-        .order('nombre');
 
-      if (alumnosError) throw alumnosError;
+    const maxRetries = 2;
+    let attempt = 0;
 
-      // Obtener todas las asistencias con observaciones para el historial
-      const { data: asistenciaData, error: asistenciaError } = await supabase
-        .from('asistencia')
-        .select('*')
-        .not('observaciones', 'is', null)
-        .order('fecha', { ascending: false });
+    while (attempt <= maxRetries) {
+      try {
+        const { data: alumnosData, error: alumnosError } = await supabase
+          .from('alumnos')
+          .select('*')
+          .order('nombre');
 
-      if (asistenciaError) throw asistenciaError;
+        if (alumnosError) throw alumnosError;
 
-      const mapped: Alumno[] = alumnosData.map(a => ({
-        id: a.id,
-        nombre: a.nombre,
-        grado: a.grado || '',
-        escuela: a.escuela || '',
-        dni: a.dni || '',
-        nacimiento: a.fecha_nacimiento || '',
-        emergencia: a.emergencia_contacto || '',
-        autorizados: a.autorizados_retiro || '',
-        obraSocial: a.obra_social,
-        historial: (asistenciaData || [])
-          .filter(as => as.alumno_id === a.id)
-          .map(as => ({
-            id: as.id,
-            fecha: as.fecha,
-            maestra: 'Maestra', // Podríamos vincular con tabla maestras después
-            contenido: as.observaciones,
-            etiqueta: 'Observación'
-          }))
-      }));
+        // Obtener todas las asistencias con observaciones para el historial
+        const { data: asistenciaData, error: asistenciaError } = await supabase
+          .from('asistencia')
+          .select('*')
+          .not('observaciones', 'is', null)
+          .order('fecha', { ascending: false });
 
-      setAlumnos(mapped);
-    } catch (err: any) {
-      console.error('Error fetching evolution:', err);
-      setError('No se pudo conectar con el servidor. Si el sistema estuvo inactivo, es probable que la base de datos se esté iniciando. Por favor, reintenta.');
-    } finally {
-      setIsLoading(false);
+        if (asistenciaError) throw asistenciaError;
+
+        const mapped: Alumno[] = alumnosData.map(a => ({
+          id: a.id,
+          nombre: a.nombre,
+          grado: a.grado || '',
+          escuela: a.escuela || '',
+          dni: a.dni || '',
+          nacimiento: a.fecha_nacimiento || '',
+          emergencia: a.emergencia_contacto || '',
+          autorizados: a.autorizados_retiro || '',
+          obraSocial: a.obra_social,
+          historial: (asistenciaData || [])
+            .filter(as => as.alumno_id === a.id)
+            .map(as => ({
+              id: as.id,
+              fecha: as.fecha,
+              maestra: 'Maestra', // Podríamos vincular con tabla maestras después
+              contenido: as.observaciones,
+              etiqueta: 'Observación'
+            }))
+        }));
+
+        setAlumnos(mapped);
+        return; // Success, exit retry loop
+      } catch (err: any) {
+        attempt++;
+        console.warn(`Intento ${attempt} de carga de alumnos fallido:`, err);
+        if (attempt > maxRetries) {
+          setError('No se pudo conectar con el servidor. Si el sistema estuvo inactivo, es probable que la base de datos se esté iniciando. Por favor, reintenta.');
+        } else {
+          await new Promise(resolve => setTimeout(resolve, 1500));
+        }
+      } finally {
+        if (attempt > maxRetries) {
+          setIsLoading(false);
+        }
+      }
     }
   };
 
