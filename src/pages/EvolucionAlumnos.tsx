@@ -32,6 +32,7 @@ const EvolucionAlumnos: React.FC = () => {
   const [selectedAlumno, setSelectedAlumno] = useState<Alumno | null>(null);
   const [alumnos, setAlumnos] = useState<Alumno[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchAlumnos();
@@ -39,6 +40,7 @@ const EvolucionAlumnos: React.FC = () => {
 
   const fetchAlumnos = async () => {
     setIsLoading(true);
+    setError(null);
     try {
       const { data: alumnosData, error: alumnosError } = await supabase
         .from('alumnos')
@@ -78,8 +80,9 @@ const EvolucionAlumnos: React.FC = () => {
       }));
 
       setAlumnos(mapped);
-    } catch (error) {
-      console.error('Error fetching evolution:', error);
+    } catch (err: any) {
+      console.error('Error fetching evolution:', err);
+      setError('No se pudo conectar con el servidor. Si el sistema estuvo inactivo, es probable que la base de datos se esté iniciando. Por favor, reintenta.');
     } finally {
       setIsLoading(false);
     }
@@ -119,7 +122,18 @@ const EvolucionAlumnos: React.FC = () => {
               </div>
             </div>
 
-            {isLoading ? (
+            {error ? (
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '1.25rem', color: 'var(--color-primary)', textAlign: 'center', marginTop: '2rem', background: '#FEF2F2', padding: '2rem', borderRadius: '16px', border: '1px solid #FEE2E2' }}>
+                <p style={{ color: 'var(--color-secondary)', fontWeight: 'bold', margin: 0 }}>{error}</p>
+                <button 
+                  className="btn btn-secondary" 
+                  onClick={fetchAlumnos} 
+                  style={{ padding: '0.6rem 1.5rem', background: 'var(--color-secondary)', border: 'none', color: 'white', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
+                >
+                  🔄 Reintentar Conexión
+                </button>
+              </div>
+            ) : isLoading ? (
               <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '1rem', color: 'var(--color-gray-400)', marginTop: '2rem' }}>
                 <Loader2 size={40} className="animate-spin" />
                 <p>Cargando alumnos...</p>

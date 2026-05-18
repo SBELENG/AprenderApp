@@ -40,6 +40,7 @@ const AsistenciaAdmin: React.FC = () => {
   const [isAdminAuthOpen, setIsAdminAuthOpen] = useState(false);
   const [pendingRoute, setPendingRoute] = useState<string | null>(null);
   const [healthAlertAlumno, setHealthAlertAlumno] = useState<Alumno | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchAlumnos();
@@ -115,8 +116,9 @@ const AsistenciaAdmin: React.FC = () => {
       });
 
       setAlumnos(mappedAlumnos);
-    } catch (error) {
-      console.error('Error fetching data:', error);
+    } catch (err: any) {
+      console.error('Error fetching data:', err);
+      setError('No se pudo conectar con el servidor. Si el sistema estuvo inactivo, es probable que la base de datos se esté iniciando. Por favor, reintenta.');
     } finally {
       setIsLoading(false);
     }
@@ -317,7 +319,18 @@ const AsistenciaAdmin: React.FC = () => {
           />
         </div>
 
-        {isLoading ? (
+        {error ? (
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '1.25rem', color: 'var(--color-primary)', textAlign: 'center', marginTop: '2rem', background: '#FEF2F2', padding: '2rem', borderRadius: '16px', border: '1px solid #FEE2E2' }}>
+            <p style={{ color: 'var(--color-secondary)', fontWeight: 'bold', margin: 0 }}>{error}</p>
+            <button 
+              className="btn btn-secondary" 
+              onClick={fetchAlumnos} 
+              style={{ padding: '0.6rem 1.5rem', background: 'var(--color-secondary)', border: 'none', color: 'white', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
+            >
+              🔄 Reintentar Conexión
+            </button>
+          </div>
+        ) : isLoading ? (
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '1rem', color: 'var(--color-gray-400)' }}>
             <Loader2 size={40} className="animate-spin" />
             <p>Cargando alumnos...</p>
