@@ -116,14 +116,30 @@ const AgendaPadres: React.FC = () => {
     }
 
     const sortedRes = [...reservations].sort((a,b) => a.date.getTime() - b.date.getTime());
-    const tableData = sortedRes.map(r => [
-      r.date.toLocaleDateString(),
-      r.shiftLabel
-    ]);
+    
+    const tableData: any[] = [];
+    const shiftCounts: Record<string, number> = {};
+
+    sortedRes.forEach(r => {
+      const key = `${r.date.getTime()}-${r.shiftId}`;
+      const nameIndex = shiftCounts[key] || 0;
+      shiftCounts[key] = nameIndex + 1;
+      
+      let assignedName = "";
+      if (paymentState?.nombres && paymentState.nombres.length > 0) {
+        assignedName = paymentState.nombres[Math.min(nameIndex, paymentState.nombres.length - 1)];
+      }
+
+      tableData.push([
+        r.date.toLocaleDateString(),
+        r.shiftLabel,
+        assignedName || "Alumno"
+      ]);
+    });
 
     autoTable(doc, {
       startY: tableStartY,
-      head: [['Fecha', 'Horario']],
+      head: [['Fecha', 'Horario', 'Alumno']],
       body: tableData,
       theme: 'grid',
       headStyles: { fillColor: [30, 58, 95] }
