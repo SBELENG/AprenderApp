@@ -59,21 +59,34 @@ const AgendaPadres: React.FC = () => {
     setShowShiftModal(true);
   };
 
-  const handleToggleShift = (shiftId: string, shiftLabel: string) => {
+  const handleAddShift = (shiftId: string, shiftLabel: string) => {
+    if (!selectedDate) return;
+    
+    // Check global limit
+    if (reservations.length >= allowedShifts) {
+      alert(`Tu plan actual te permite agendar hasta ${allowedShifts} turno(s) en total.`);
+      return;
+    }
+
+    // Check limit per shift (cannot exceed children count)
+    const countInThisShift = reservations.filter(r => r.date.getTime() === selectedDate.getTime() && r.shiftId === shiftId).length;
+    const maxPerShift = paymentState?.childrenCount || 1;
+    
+    if (countInThisShift >= maxPerShift) {
+      alert(`No puedes reservar más de ${maxPerShift} cupo(s) para este mismo horario (corresponde a la cantidad de niños inscriptos).`);
+      return;
+    }
+
+    setReservations([...reservations, { date: selectedDate, shiftId, shiftLabel }]);
+  };
+
+  const handleRemoveShift = (shiftId: string) => {
     if (!selectedDate) return;
     const existingIndex = reservations.findIndex(r => r.date.getTime() === selectedDate.getTime() && r.shiftId === shiftId);
     
     if (existingIndex >= 0) {
       setReservations(reservations.filter((_, i) => i !== existingIndex));
-    } else {
-      if (reservations.length >= allowedShifts) {
-        alert(`Tu plan actual te permite agendar hasta ${allowedShifts} turno(s).`);
-        return;
-      }
-      setReservations([...reservations, { date: selectedDate, shiftId, shiftLabel }]);
     }
-    // Opcional: cerrar el modal después de elegir un turno, o dejarlo abierto para elegir más
-    setShowShiftModal(false);
   };
 
   const handleReserve = () => {
@@ -326,23 +339,43 @@ const AgendaPadres: React.FC = () => {
             
             <div className="flex-col gap-3">
               {availableShifts().map(shift => {
-                const isSelected = reservations.some(r => r.date.getTime() === selectedDate.getTime() && r.shiftId === shift.id);
+                const countSelected = reservations.filter(r => r.date.getTime() === selectedDate.getTime() && r.shiftId === shift.id).length;
+                const isSelected = countSelected > 0;
+                
                 return (
                   <div 
                     key={shift.id}
-                    onClick={() => handleToggleShift(shift.id, shift.label)}
+                    onClick={() => {
+                      if (countSelected === 0) handleAddShift(shift.id, shift.label);
+                    }}
                     style={{ 
                       border: `2px solid ${isSelected ? 'var(--color-secondary)' : 'var(--color-gray-300)'}`,
-                      borderRadius: '12px', padding: '1rem', cursor: 'pointer',
+                      borderRadius: '12px', padding: '1rem', 
+                      cursor: countSelected === 0 ? 'pointer' : 'default',
                       background: isSelected ? 'var(--color-background)' : 'white',
                       display: 'flex', justifyContent: 'space-between', alignItems: 'center'
                     }}
                   >
                     <div>
                       <p style={{ margin: 0, fontWeight: 'bold', color: 'var(--color-primary)' }}>{shift.label}</p>
-                      <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--color-gray-500)' }}>Cupos: 12</p>
+                      <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--color-gray-500)' }}>Cupos libres: {12 - countSelected}</p>
                     </div>
-                    {isSelected && <CheckCircle2 size={24} color="var(--color-secondary)" />}
+                    
+                    {isSelected ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', background: 'white', padding: '0.25rem', borderRadius: '8px', border: '1px solid var(--color-gray-300)' }}>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); handleRemoveShift(shift.id); }}
+                          style={{ width: '28px', height: '28px', borderRadius: '6px', border: '1px solid var(--color-gray-300)', background: 'white', color: 'var(--color-primary)', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        >-</button>
+                        <span style={{ fontWeight: 'bold', color: 'var(--color-secondary)', minWidth: '12px', textAlign: 'center' }}>{countSelected}</span>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); handleAddShift(shift.id, shift.label); }}
+                          style={{ width: '28px', height: '28px', borderRadius: '6px', border: 'none', background: 'var(--color-secondary)', color: 'white', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        >+</button>
+                      </div>
+                    ) : (
+                      <CheckCircle2 size={24} color="var(--color-gray-300)" style={{ opacity: 0.5 }} />
+                    )}
                   </div>
                 );
               })}
