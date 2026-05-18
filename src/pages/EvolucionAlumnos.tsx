@@ -88,9 +88,10 @@ const EvolucionAlumnos: React.FC = () => {
         return; // Success, exit retry loop
       } catch (err: any) {
         attempt++;
-        console.warn(`Intento ${attempt} de carga de alumnos fallido:`, err);
+        console.error(`Intento ${attempt} de carga de alumnos fallido:`, err);
         if (attempt > maxRetries) {
-          setError('No se pudo conectar con el servidor. Si el sistema estuvo inactivo, es probable que la base de datos se esté iniciando. Por favor, reintenta.');
+          const dbMessage = err.message || (typeof err === 'object' ? JSON.stringify(err) : String(err));
+          setError(`Error de Base de Datos: ${dbMessage}`);
         } else {
           await new Promise(resolve => setTimeout(resolve, 1500));
         }
