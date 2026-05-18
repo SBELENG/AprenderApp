@@ -124,7 +124,15 @@ const AgendaAdmin: React.FC = () => {
     });
 
     // Guardar en dispositivo
-    doc.save(`Asistencia_${selectedDate}.pdf`);
+    const blob = doc.output('blob');
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Asistencia_${selectedDate}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   return (

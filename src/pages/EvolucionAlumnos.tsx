@@ -30,6 +30,7 @@ const EvolucionAlumnos: React.FC = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedAlumno, setSelectedAlumno] = useState<Alumno | null>(null);
+  const [selectedAlumnoFoto, setSelectedAlumnoFoto] = useState<string | null>(null);
   const [alumnos, setAlumnos] = useState<Alumno[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -63,6 +64,11 @@ const EvolucionAlumnos: React.FC = () => {
 
         if (asistenciaError) throw asistenciaError;
 
+        // Obtener maestras
+        const { data: maestrasData } = await supabase
+          .from('maestras')
+          .select('id, nombre');
+
         const mapped: Alumno[] = alumnosData.map(a => ({
           id: a.id,
           nombre: a.nombre,
@@ -78,7 +84,7 @@ const EvolucionAlumnos: React.FC = () => {
             .map(as => ({
               id: as.id,
               fecha: as.fecha,
-              maestra: 'Maestra', // Podríamos vincular con tabla maestras después
+              maestra: maestrasData?.find(m => m.id === as.maestra_id)?.nombre || 'Maestra',
               contenido: as.observaciones,
               etiqueta: 'Observación'
             }))
@@ -163,7 +169,22 @@ const EvolucionAlumnos: React.FC = () => {
                 {filteredAlumnos.map(alumno => (
                   <div 
                     key={alumno.id} 
-                    onClick={() => setSelectedAlumno(alumno)}
+                    onClick={async () => {
+                      setSelectedAlumno(alumno);
+                      setSelectedAlumnoFoto(null);
+                      try {
+                        const { data } = await supabase
+                          .from('alumnos')
+                          .select('foto_url')
+                          .eq('id', alumno.id)
+                          .single();
+                        if (data?.foto_url) {
+                          setSelectedAlumnoFoto(data.foto_url);
+                        }
+                      } catch (err) {
+                        console.error('Error fetching student photo:', err);
+                      }
+                    }}
                     style={{ 
                       display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', 
                       background: '#F9FAFB', borderRadius: '16px', cursor: 'pointer', border: '1px solid #F3F4F6'
@@ -188,7 +209,7 @@ const EvolucionAlumnos: React.FC = () => {
         ) : (
           <div style={{ animation: 'fadeIn 0.3s' }}>
             <button 
-              onClick={() => setSelectedAlumno(null)}
+              onClick={() => { setSelectedAlumno(null); setSelectedAlumnoFoto(null); }}
               style={{ background: 'none', border: 'none', color: 'var(--color-secondary)', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.25rem', marginBottom: '1.5rem', cursor: 'pointer' }}
             >
               <ChevronLeft size={20} />
@@ -199,9 +220,13 @@ const EvolucionAlumnos: React.FC = () => {
               <div style={{ 
                 width: '80px', height: '80px', borderRadius: '50%', background: 'var(--color-background)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-primary)',
-                margin: '0 auto 1rem'
+                margin: '0 auto 1rem', overflow: 'hidden', border: '2px solid var(--color-gray-200)'
               }}>
-                <User size={40} />
+                {selectedAlumnoFoto ? (
+                  <img src={selectedAlumnoFoto} alt={selectedAlumno.nombre} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  <User size={40} />
+                )}
               </div>
               <h3 style={{ margin: 0, color: 'var(--color-primary)' }}>{selectedAlumno.nombre}</h3>
               <p style={{ margin: 0, color: 'var(--color-gray-500)' }}>{selectedAlumno.grado} Grado | {selectedAlumno.escuela}</p>

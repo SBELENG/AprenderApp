@@ -138,7 +138,18 @@ const Contabilidad: React.FC = () => {
     const worksheet = XLSX.utils.json_to_sheet(transacciones);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Transacciones");
-    XLSX.writeFile(workbook, "Contabilidad_Academia_Aprender.xlsx");
+    
+    // Generar buffer XLSX manualmente y forzar descarga
+    const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Contabilidad_Academia_Aprender.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   return (
