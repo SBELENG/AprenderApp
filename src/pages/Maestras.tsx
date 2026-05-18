@@ -148,8 +148,7 @@ const Maestras: React.FC = () => {
       const { error } = await supabase
         .from('jornales')
         .update({ pagado: true })
-        .eq('maestra_id', id)
-        .is('pagado', null); // Update only unpaid
+        .eq('maestra_id', id);
 
       if (error) throw error;
       

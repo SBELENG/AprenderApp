@@ -310,7 +310,7 @@ const AsistenciaAdmin: React.FC = () => {
               <div className="flex justify-between items-start mb-3">
                 <div>
                   <p style={{ margin: 0, fontWeight: 'bold', color: 'var(--color-primary)', fontSize: '1.1rem' }}>{alumno.nombre}</p>
-                  <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--color-gray-500)' }}>Turno: {alumno.turno}</p>
+                  <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--color-gray-500)' }}>Grado Escolar: {alumno.turno}</p>
                   {alumno.maestraNombre && (
                     <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: '#10B981', fontWeight: 'bold' }}>
                       <Users2 size={12} style={{ display: 'inline', marginRight: '4px' }} />
