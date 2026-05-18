@@ -4,6 +4,17 @@ import { ChevronLeft, Download, CreditCard, Banknote, BarChart, Loader2, Plus, X
 import * as XLSX from 'xlsx';
 import { supabase } from '../lib/supabase';
 
+const formatDateStringAR = (dateStr: string) => {
+  if (!dateStr) return '';
+  const parts = dateStr.split('-');
+  if (parts.length === 3) {
+    if (parts[0].length === 4) {
+      return `${parts[2]}-${parts[1]}-${parts[0]}`;
+    }
+  }
+  return dateStr;
+};
+
 type Transaccion = {
   id: string;
   fecha: string;
@@ -222,7 +233,7 @@ const Contabilidad: React.FC = () => {
                   <div>
                     <p style={{ margin: 0, fontWeight: 'bold', fontSize: '0.9rem', color: 'var(--color-primary)' }}>{t.alumno}</p>
                     <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--color-gray-500)' }}>
-                      {t.fecha} • {t.metodo} {t.codigo_efectivo && `(${t.codigo_efectivo})`}
+                      {formatDateStringAR(t.fecha)} • {t.metodo} {t.codigo_efectivo && `(${t.codigo_efectivo})`}
                     </p>
                   </div>
                   <span style={{ fontWeight: 'bold', color: t.metodo === 'Efectivo' ? '#15803D' : '#0369A1' }}>

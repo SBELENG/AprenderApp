@@ -138,6 +138,7 @@ const Ficha: React.FC = () => {
               alumno_id: alumData[0].id,
               monto: paymentState.total / totalChildren,
               metodo: paymentState.metodo || 'Mercado Pago',
+              codigo_efectivo: paymentState.codigo_efectivo || null,
               fecha: new Date().toISOString().split('T')[0]
             }]);
           if (pagoError) console.error('Error registrando pago:', pagoError);
@@ -191,8 +192,23 @@ const Ficha: React.FC = () => {
         >
           <ChevronLeft size={28} />
         </button>
+        {totalChildren > 1 && (
+          <span style={{
+            position: 'absolute',
+            right: '1rem',
+            top: '2rem',
+            background: 'var(--color-secondary)',
+            color: 'white',
+            padding: '0.25rem 0.75rem',
+            borderRadius: '100px',
+            fontSize: '0.8rem',
+            fontWeight: 'bold'
+          }}>
+            Ficha {currentChildIndex + 1} de {totalChildren}
+          </span>
+        )}
         <h2 style={{ color: 'var(--color-primary)', marginTop: '0.5rem' }}>
-          Ficha del Alumno {totalChildren > 1 ? `(${currentChildIndex + 1} de ${totalChildren})` : `(Detectado 1)`}
+          Ficha del Alumno
         </h2>
         <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--color-gray-500)' }}>Paso final de inscripción</p>
       </div>

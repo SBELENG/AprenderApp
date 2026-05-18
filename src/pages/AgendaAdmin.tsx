@@ -15,6 +15,17 @@ type AsistenciaRecord = {
   desempeno: string;
 };
 
+const formatDateStringAR = (dateStr: string) => {
+  if (!dateStr) return '';
+  const parts = dateStr.split('-');
+  if (parts.length === 3) {
+    if (parts[0].length === 4) {
+      return `${parts[2]}-${parts[1]}-${parts[0]}`;
+    }
+  }
+  return dateStr;
+};
+
 const AgendaAdmin: React.FC = () => {
   const navigate = useNavigate();
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -90,7 +101,7 @@ const AgendaAdmin: React.FC = () => {
     
     doc.setFontSize(14);
     doc.setTextColor(100, 100, 100);
-    doc.text(`Informe de Asistencia - ${selectedDate}`, 14, 32);
+    doc.text(`Informe de Asistencia - ${formatDateStringAR(selectedDate)}`, 14, 32);
 
     // Tabla
     const tableColumn = ["Alumno", "Horario", "Grado", "Maestra", "Salud", "Dificultad"];

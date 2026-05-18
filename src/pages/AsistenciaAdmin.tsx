@@ -9,6 +9,7 @@ type Alumno = {
   id: string;
   nombre: string;
   turno: string;
+  grado?: string;
   estado: 'Pendiente' | 'Presente' | 'Retirado';
   horaIngreso?: string;
   horaRetiro?: string;
@@ -66,9 +67,24 @@ const AsistenciaAdmin: React.FC = () => {
 
       if (asistenciaError) throw asistenciaError;
 
+      // 2.5 Obtener reservas del día
+      const { data: reservasData } = await supabase
+        .from('reservas')
+        .select('*')
+        .eq('fecha', selectedDate);
+
+      // Filtrar alumnos que tengan reserva para este día O que ya tengan registro de asistencia
+      const bookedNames = new Set(reservasData?.map(r => r.alumno_nombre.trim().toLowerCase()) || []);
+      const attendedIds = new Set(asistenciaData?.map(as => as.alumno_id) || []);
+
+      const filteredAlumnos = alumnosData.filter(a => 
+        bookedNames.has(a.nombre.trim().toLowerCase()) || attendedIds.has(a.id)
+      );
+
       // 3. Mapear datos
-      const mappedAlumnos: Alumno[] = alumnosData.map(a => {
+      const mappedAlumnos: Alumno[] = filteredAlumnos.map(a => {
         const asistencia = asistenciaData?.find(as => as.alumno_id === a.id);
+        const reserva = reservasData?.find(r => r.alumno_nombre.trim().toLowerCase() === a.nombre.trim().toLowerCase());
         let estado: 'Pendiente' | 'Presente' | 'Retirado' = 'Pendiente';
         if (asistencia) {
           estado = asistencia.hora_retiro ? 'Retirado' : 'Presente';
@@ -77,7 +93,8 @@ const AsistenciaAdmin: React.FC = () => {
         return {
           id: a.id,
           nombre: a.nombre,
-          turno: a.grado || 'S/D', // Usamos grado como turno temporalmente o lo que venga
+          turno: reserva?.horario || 'S/D', // AHORA turno ES EL HORARIO DE RESERVA
+          grado: a.grado || 'S/D', // AHORA grado ES EL GRADO ESCOLAR REAL
           estado,
           horaIngreso: asistencia?.hora_ingreso,
           horaRetiro: asistencia?.hora_retiro,
@@ -308,7 +325,7 @@ const AsistenciaAdmin: React.FC = () => {
         ) : alumnos.length === 0 ? (
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '1rem', color: 'var(--color-gray-400)', textAlign: 'center' }}>
             <Users2 size={48} />
-            <p>No hay alumnos registrados aún.<br/>Usa la Ficha de Inscripción para empezar.</p>
+            <p>No hay alumnos reservados ni ingresados para este día.<br/>Usa la Ficha de Inscripción o Agenda para registrar turnos.</p>
           </div>
         ) : (
           <div className="flex-col gap-4">
@@ -321,7 +338,12 @@ const AsistenciaAdmin: React.FC = () => {
               <div className="flex justify-between items-start mb-3">
                 <div>
                   <p style={{ margin: 0, fontWeight: 'bold', color: 'var(--color-primary)', fontSize: '1.1rem' }}>{alumno.nombre}</p>
-                  <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--color-gray-500)' }}>Grado Escolar: {alumno.turno}</p>
+                  <p style={{ margin: '4px 0 0', fontSize: '0.85rem', color: 'var(--color-secondary)', fontWeight: 'bold' }}>
+                    ⏰ Horario Reservado: {alumno.turno}
+                  </p>
+                  <p style={{ margin: '2px 0 0', fontSize: '0.85rem', color: 'var(--color-gray-500)' }}>
+                    📚 Grado Escolar: {alumno.grado}
+                  </p>
                   {alumno.maestraNombre && (
                     <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: '#10B981', fontWeight: 'bold' }}>
                       <Users2 size={12} style={{ display: 'inline', marginRight: '4px' }} />

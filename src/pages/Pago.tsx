@@ -9,6 +9,7 @@ const Pago: React.FC = () => {
 
   const [paymentMethod, setPaymentMethod] = useState<'mp' | 'efectivo' | null>(null);
   const [code, setCode] = useState('');
+  const [refCode, setRefCode] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
   if (!state) {
@@ -21,11 +22,16 @@ const Pago: React.FC = () => {
     setIsProcessing(true);
 
     if (paymentMethod === 'mp') {
+      if (!refCode || refCode.trim().length < 6) {
+        alert('Por favor ingresa un número de comprobante válido.');
+        setIsProcessing(false);
+        return;
+      }
       // Simular redirección a Mercado Pago
       setTimeout(() => {
         setIsProcessing(false);
-        alert('Transferencia notificada. Por favor guarda el comprobante por si la administración lo requiere.');
-        navigate('/ficha', { state: { ...state, metodo: 'Mercado Pago' } });
+        alert(`Transferencia notificada con el comprobante: ${refCode}. Por favor continúa.`);
+        navigate('/ficha', { state: { ...state, metodo: 'Mercado Pago', codigo_efectivo: 'MP-' + refCode } });
       }, 2000);
     } else {
       // Validar código de efectivo (8 caracteres)
@@ -126,9 +132,23 @@ const Pago: React.FC = () => {
                 </button>
               </div>
               <p style={{ fontSize: '0.8rem', color: 'var(--color-gray-500)', marginTop: '0.75rem', marginBottom: 0 }}>
-                1. Copia el alias y transfiere <b>${state.total.toLocaleString()}</b> desde tu app bancaria o MP.<br/>
-                2. Vuelve aquí y presiona "Ya transferí".
+                1. Copia el alias y transfiere <b>${state.total.toLocaleString()}</b> desde tu app bancaria o MP.
               </p>
+              <div className="input-group" style={{ marginTop: '1.25rem' }}>
+                <label className="input-label" style={{ color: 'var(--color-primary)', fontWeight: 'bold' }}>Número de Operación / Comprobante MP</label>
+                <input 
+                  type="text" 
+                  className="input-field" 
+                  placeholder="Ej: 8765432109" 
+                  value={refCode}
+                  onChange={(e) => setRefCode(e.target.value)}
+                  required
+                  style={{ background: 'white' }}
+                />
+                <p style={{ fontSize: '0.75rem', color: 'var(--color-gray-500)', marginTop: '4px', margin: 0 }}>
+                  Ingresa el código de operación que figura en tu comprobante de transferencia para verificar tu pago rápidamente.
+                </p>
+              </div>
             </div>
           )}
 

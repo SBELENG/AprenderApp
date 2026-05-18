@@ -5,8 +5,14 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { supabase } from '../lib/supabase';
 
-// Feriados simulados (formato YYYY-MM-DD)
-const FERIADOS = ['2026-05-25', '2026-06-20'];
+// Helper de formato de fecha en Argentina (dd-mm-aaaa)
+const formatDateAR = (date: Date) => {
+  const d = new Date(date);
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${day}-${month}-${year}`;
+};
 
 type Reservation = { date: Date, shiftId: string, shiftLabel: string };
 
@@ -18,6 +24,37 @@ const AgendaPadres: React.FC = () => {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isConfirmed, setIsConfirmed] = useState(false);
+  const [cupoMaximo, setCupoMaximo] = useState(12);
+  const [feriadosList, setFeriadosList] = useState<string[]>(['2026-05-25', '2026-06-20']);
+
+  React.useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const localCupo = localStorage.getItem('config_cupo');
+        const localFeriados = localStorage.getItem('config_feriados');
+        if (localCupo) setCupoMaximo(Number(localCupo));
+        if (localFeriados) setFeriadosList(localFeriados.split(',').map((s: string) => s.trim()));
+
+        const { data } = await supabase.from('configuracion').select('*');
+        if (data) {
+          const cupoItem = data.find(item => item.clave === 'cupo_maximo');
+          const feriadosItem = data.find(item => item.clave === 'feriados');
+          if (cupoItem) {
+            setCupoMaximo(Number(cupoItem.valor));
+            localStorage.setItem('config_cupo', cupoItem.valor);
+          }
+          if (feriadosItem) {
+            const list = feriadosItem.valor.split(',').map((s: string) => s.trim());
+            setFeriadosList(list);
+            localStorage.setItem('config_feriados', feriadosItem.valor);
+          }
+        }
+      } catch (err) {
+        console.warn("Usando fallback local para configuración:", err);
+      }
+    };
+    fetchConfig();
+  }, []);
 
   // Calcular turnos permitidos basados en el pago (por defecto 1 si no hay state)
   const allowedShifts = paymentState 
@@ -50,7 +87,7 @@ const AgendaPadres: React.FC = () => {
       alert('La academia está cerrada los domingos.');
       return;
     }
-    if (FERIADOS.includes(dateString)) {
+    if (feriadosList.includes(dateString)) {
       alert('La academia está cerrada por feriado.');
       return;
     }
@@ -145,7 +182,7 @@ const AgendaPadres: React.FC = () => {
     
     doc.setFontSize(12);
     doc.setTextColor(100);
-    doc.text(`Fecha de emisión: ${new Date().toLocaleDateString()}`, 14, 32);
+    doc.text(`Fecha de emisión: ${formatDateAR(new Date())}`, 14, 32);
     
     let tableStartY = 45;
     if (paymentState && paymentState.nombres && paymentState.nombres.length > 0) {
@@ -172,7 +209,7 @@ const AgendaPadres: React.FC = () => {
       }
 
       tableData.push([
-        r.date.toLocaleDateString(),
+        formatDateAR(r.date),
         r.shiftLabel,
         assignedName || "Alumno"
       ]);
@@ -201,7 +238,7 @@ const AgendaPadres: React.FC = () => {
 
   const isFeriado = (day: number) => {
     const dateString = new Date(currentYear, currentMonth, day).toISOString().split('T')[0];
-    return FERIADOS.includes(dateString);
+    return feriadosList.includes(dateString);
   };
 
   const isDomingo = (day: number) => {
@@ -415,7 +452,7 @@ const AgendaPadres: React.FC = () => {
                   >
                     <div>
                       <p style={{ margin: 0, fontWeight: 'bold', color: 'var(--color-primary)' }}>{shift.label}</p>
-                      <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--color-gray-500)' }}>Cupos libres: {12 - countSelected}</p>
+                      <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--color-gray-500)' }}>Cupos libres: {cupoMaximo - countSelected}</p>
                     </div>
                     
                     {isSelected ? (
