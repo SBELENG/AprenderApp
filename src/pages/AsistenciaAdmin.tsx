@@ -478,7 +478,12 @@ const AsistenciaAdmin: React.FC = () => {
       <HealthAlertModal 
         isOpen={!!healthAlertAlumno}
         onClose={() => {
-          if (healthAlertAlumno) openIngresoModal(healthAlertAlumno.id);
+          const id = healthAlertAlumno?.id;
+          setHealthAlertAlumno(null);
+          if (id) {
+            setActiveIngresoModalId(id);
+            setSelectedMaestraId('');
+          }
         }}
         alumnoNombre={healthAlertAlumno?.nombre || ''}
         saludInfo={healthAlertAlumno?.salud || ''}
