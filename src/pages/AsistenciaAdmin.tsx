@@ -122,6 +122,7 @@ const AsistenciaAdmin: React.FC = () => {
         });
 
         setAlumnos(mappedAlumnos);
+        setIsLoading(false);
         return; // Success, exit retry loop
       } catch (err: any) {
         attempt++;

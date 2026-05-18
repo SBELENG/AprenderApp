@@ -85,6 +85,7 @@ const EvolucionAlumnos: React.FC = () => {
         }));
 
         setAlumnos(mapped);
+        setIsLoading(false);
         return; // Success, exit retry loop
       } catch (err: any) {
         attempt++;
