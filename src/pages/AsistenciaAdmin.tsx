@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, Bell, UserCheck, UserMinus, FileEdit, Check, BarChart3, Users2, LineChart, Loader2, Settings, Calendar } from 'lucide-react';
+import { ChevronLeft, Bell, UserCheck, UserMinus, FileEdit, Check, BarChart3, Users2, LineChart, Loader2, Settings, Calendar, User } from 'lucide-react';
 import AdminAuthModal from '../components/AdminAuthModal';
 import HealthAlertModal from '../components/HealthAlertModal';
 import { supabase } from '../lib/supabase';
@@ -19,6 +19,7 @@ type Alumno = {
   emergencia?: string;
   autorizados?: string;
   maestraNombre?: string;
+  fotoUrl?: string;
 };
 
 type Maestra = {
@@ -88,6 +89,24 @@ const AsistenciaAdmin: React.FC = () => {
           bookedNames.has(a.nombre.trim().toLowerCase()) || attendedIds.has(a.id)
         );
 
+        // 2.6 Obtener fotos únicamente para los alumnos activos del día (evita timeouts)
+        const activeIds = filteredAlumnos.map(a => a.id);
+        let fotosMap: Record<string, string> = {};
+        if (activeIds.length > 0) {
+          const { data: fotosData } = await supabase
+            .from('alumnos')
+            .select('id, foto_url')
+            .in('id', activeIds);
+          
+          if (fotosData) {
+            fotosData.forEach(f => {
+              if (f.foto_url) {
+                fotosMap[f.id] = f.foto_url;
+              }
+            });
+          }
+        }
+
         // 3. Mapear datos
         const mappedAlumnos: Alumno[] = filteredAlumnos.map(a => {
           const asistencia = asistenciaData?.find(as => as.alumno_id === a.id);
@@ -110,7 +129,8 @@ const AsistenciaAdmin: React.FC = () => {
             dni: a.dni,
             emergencia: a.emergencia_contacto,
             autorizados: a.autorizados_retiro,
-            maestraNombre: maestrasData?.find(m => m.id === asistencia?.maestra_id)?.nombre
+            maestraNombre: maestrasData?.find(m => m.id === asistencia?.maestra_id)?.nombre,
+            fotoUrl: fotosMap[a.id] || undefined
           };
         });
 
@@ -366,20 +386,41 @@ const AsistenciaAdmin: React.FC = () => {
               opacity: alumno.estado === 'Retirado' ? 0.8 : 1
             }}>
               <div className="flex justify-between items-start mb-3">
-                <div>
-                  <p style={{ margin: 0, fontWeight: 'bold', color: 'var(--color-primary)', fontSize: '1.1rem' }}>{alumno.nombre}</p>
-                  <p style={{ margin: '4px 0 0', fontSize: '0.85rem', color: 'var(--color-secondary)', fontWeight: 'bold' }}>
-                    ⏰ Horario Reservado: {alumno.turno}
-                  </p>
-                  <p style={{ margin: '2px 0 0', fontSize: '0.85rem', color: 'var(--color-gray-500)' }}>
-                    📚 Grado Escolar: {alumno.grado}
-                  </p>
-                  {alumno.maestraNombre && (
-                    <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: '#10B981', fontWeight: 'bold' }}>
-                      <Users2 size={12} style={{ display: 'inline', marginRight: '4px' }} />
-                      A cargo de: {alumno.maestraNombre}
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                  {/* Foto de Perfil del Alumno */}
+                  <div style={{ 
+                    width: '60px', 
+                    height: '60px', 
+                    borderRadius: '50%', 
+                    overflow: 'hidden', 
+                    background: 'var(--color-gray-100)', 
+                    border: '2px solid var(--color-gray-200)',
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    flexShrink: 0
+                  }}>
+                    {alumno.fotoUrl ? (
+                      <img src={alumno.fotoUrl} alt={alumno.nombre} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      <User size={30} color="var(--color-gray-400)" />
+                    )}
+                  </div>
+                  <div>
+                    <p style={{ margin: 0, fontWeight: 'bold', color: 'var(--color-primary)', fontSize: '1.1rem' }}>{alumno.nombre}</p>
+                    <p style={{ margin: '4px 0 0', fontSize: '0.85rem', color: 'var(--color-secondary)', fontWeight: 'bold' }}>
+                      ⏰ Horario Reservado: {alumno.turno}
                     </p>
-                  )}
+                    <p style={{ margin: '2px 0 0', fontSize: '0.85rem', color: 'var(--color-gray-500)' }}>
+                      📚 Grado Escolar: {alumno.grado}
+                    </p>
+                    {alumno.maestraNombre && (
+                      <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: '#10B981', fontWeight: 'bold' }}>
+                        <Users2 size={12} style={{ display: 'inline', marginRight: '4px' }} />
+                        A cargo de: {alumno.maestraNombre}
+                      </p>
+                    )}
+                  </div>
                 </div>
                 <span style={{ 
                   display: 'inline-block', padding: '0.3rem 0.6rem', borderRadius: '100px', fontSize: '0.75rem', fontWeight: 'bold',
