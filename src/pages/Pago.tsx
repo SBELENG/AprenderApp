@@ -24,7 +24,7 @@ const Pago: React.FC = () => {
       // Simular redirección a Mercado Pago
       setTimeout(() => {
         setIsProcessing(false);
-        alert('Simulación: Pago completado por Mercado Pago. Redirigiendo a ficha del alumno...');
+        alert('Transferencia notificada. Por favor guarda el comprobante por si la administración lo requiere.');
         navigate('/ficha', { state: { ...state, metodo: 'Mercado Pago' } });
       }, 2000);
     } else {
@@ -86,8 +86,8 @@ const Pago: React.FC = () => {
             >
               <CreditCard size={24} color={paymentMethod === 'mp' ? '#009EE3' : 'var(--color-gray-500)'} />
               <div>
-                <h4 style={{ margin: 0, color: paymentMethod === 'mp' ? '#009EE3' : 'var(--color-primary)' }}>Mercado Pago</h4>
-                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--color-gray-500)' }}>Tarjetas, dinero en cuenta o cuotas</p>
+                <h4 style={{ margin: 0, color: paymentMethod === 'mp' ? '#009EE3' : 'var(--color-primary)' }}>Transferencia / Mercado Pago</h4>
+                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--color-gray-500)' }}>Enviar dinero a nuestro Alias</p>
               </div>
             </div>
 
@@ -108,6 +108,29 @@ const Pago: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {paymentMethod === 'mp' && (
+            <div style={{ marginBottom: '2rem', animation: 'fadeIn 0.3s', background: '#F2FAFD', padding: '1rem', borderRadius: '12px', border: '1px solid #009EE3' }}>
+              <p style={{ margin: '0 0 0.5rem', color: 'var(--color-primary)', fontWeight: 'bold' }}>Datos para transferir:</p>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'white', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--color-gray-300)' }}>
+                <div>
+                  <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--color-gray-500)' }}>Alias Mercado Pago</p>
+                  <p style={{ margin: 0, fontWeight: 'bold', color: '#009EE3', letterSpacing: '1px' }}>academia.aprender26</p>
+                </div>
+                <button 
+                  type="button"
+                  onClick={() => navigator.clipboard.writeText('academia.aprender26').then(() => alert('Alias copiado'))}
+                  style={{ background: 'none', border: 'none', color: '#009EE3', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem' }}
+                >
+                  Copiar
+                </button>
+              </div>
+              <p style={{ fontSize: '0.8rem', color: 'var(--color-gray-500)', marginTop: '0.75rem', marginBottom: 0 }}>
+                1. Copia el alias y transfiere <b>${state.total.toLocaleString()}</b> desde tu app bancaria o MP.<br/>
+                2. Vuelve aquí y presiona "Ya transferí".
+              </p>
+            </div>
+          )}
 
           {paymentMethod === 'efectivo' && (
             <div className="input-group" style={{ marginBottom: '2rem', animation: 'fadeIn 0.3s' }}>
@@ -141,7 +164,7 @@ const Pago: React.FC = () => {
               {isProcessing 
                 ? 'Procesando...' 
                 : paymentMethod === 'mp' 
-                  ? 'Ya realicé el pago' 
+                  ? 'Ya transferí'  
                   : 'Validar y Continuar'}
             </button>
           </div>
