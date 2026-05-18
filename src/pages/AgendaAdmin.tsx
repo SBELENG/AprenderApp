@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, Download, Loader2 } from 'lucide-react';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import { supabase } from '../lib/supabase';
 
 type AsistenciaRecord = {
@@ -11,6 +11,8 @@ type AsistenciaRecord = {
   turno: string;
   maestra: string;
   estado: string;
+  salud: string;
+  desempeno: string;
 };
 
 const AgendaAdmin: React.FC = () => {
@@ -36,7 +38,7 @@ const AgendaAdmin: React.FC = () => {
       if (reservasError) throw reservasError;
 
       // 2. Fetch alumnos para cruzar datos (grado, maestra fija si la hay)
-      const { data: alumnosData } = await supabase.from('alumnos').select('nombre, grado, maestra_grado, id');
+      const { data: alumnosData } = await supabase.from('alumnos').select('nombre, grado, maestra_grado, id, salud_info, desempeno');
       
       // 3. Fetch asistencia real para ver si ya llegaron
       const { data: asistenciaData } = await supabase
@@ -63,7 +65,9 @@ const AgendaAdmin: React.FC = () => {
           grado: alumnoInfo?.grado || 'S/D',
           turno: r.horario, // AHORA MOSTRAMOS EL HORARIO REAL DE LA RESERVA
           maestra: alumnoInfo?.maestra_grado || 'S/D',
-          estado
+          estado,
+          salud: alumnoInfo?.salud_info || '-',
+          desempeno: alumnoInfo?.desempeno || '-'
         };
       });
 
@@ -89,16 +93,17 @@ const AgendaAdmin: React.FC = () => {
     doc.text(`Informe de Asistencia - ${selectedDate}`, 14, 32);
 
     // Tabla
-    const tableColumn = ["Nombre del Alumno", "Grado", "Turno", "Maestra", "Estado"];
+    const tableColumn = ["Alumno", "Horario", "Grado", "Maestra", "Salud", "Dificultad"];
     const tableRows = asistencia.map(record => [
       record.nombre,
+      record.turno,
       record.grado,
-      record.turno, // Esto ahora es el horario (ej: 14:00 a 15:00 hs)
       record.maestra,
-      record.estado
+      record.salud,
+      record.desempeno
     ]);
 
-    (doc as any).autoTable({
+    autoTable(doc, {
       head: [tableColumn],
       body: tableRows,
       startY: 40,
@@ -175,9 +180,20 @@ const AgendaAdmin: React.FC = () => {
                 borderRadius: '12px', padding: '1rem', 
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center'
               }}>
-                <div>
+                <div style={{ flex: 1 }}>
                   <p style={{ margin: 0, fontWeight: 'bold', color: 'var(--color-primary)' }}>{alumno.nombre}</p>
-                  <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--color-gray-500)' }}>{alumno.grado} | {alumno.maestra}</p>
+                  <p style={{ margin: '4px 0 0', fontSize: '0.85rem', color: 'var(--color-secondary)', fontWeight: 'bold' }}>
+                    ⏰ Horario: {alumno.turno}
+                  </p>
+                  <p style={{ margin: '2px 0 0', fontSize: '0.8rem', color: 'var(--color-gray-500)' }}>
+                    📚 Grado Escolar: {alumno.grado} | 👩‍🏫 Maestra: {alumno.maestra}
+                  </p>
+                  {(alumno.salud !== '-' || alumno.desempeno !== '-') && (
+                    <div style={{ marginTop: '8px', padding: '8px', background: '#FEF2F2', borderRadius: '8px', fontSize: '0.75rem' }}>
+                      {alumno.salud !== '-' && <p style={{ margin: 0, color: '#991B1B' }}><strong>Salud:</strong> {alumno.salud}</p>}
+                      {alumno.desempeno !== '-' && <p style={{ margin: '4px 0 0', color: '#92400E' }}><strong>Académico:</strong> {alumno.desempeno}</p>}
+                    </div>
+                  )}
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <span style={{ 

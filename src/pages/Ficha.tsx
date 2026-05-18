@@ -13,7 +13,7 @@ const Ficha: React.FC = () => {
   const [currentChildIndex, setCurrentChildIndex] = useState(0);
   const [familiaId, setFamiliaId] = useState<string | null>(null);
   const [nombresAlumnos, setNombresAlumnos] = useState<string[]>([]);
-  const totalChildren = paymentState?.childrenCount || 1;
+  const totalChildren = Number(paymentState?.childrenCount) || 1;
   
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [formData, setFormData] = useState({
@@ -112,6 +112,7 @@ const Ficha: React.FC = () => {
           emergencia_contacto: formData.emergencia,
           autorizados_retiro: formData.autorizados,
           foto_url: photoPreview,
+          desempeno: formData.desempeno,
           familia_id: currentFamiliaId
         }], { onConflict: 'dni' })
         .select();
@@ -191,7 +192,7 @@ const Ficha: React.FC = () => {
           <ChevronLeft size={28} />
         </button>
         <h2 style={{ color: 'var(--color-primary)', marginTop: '0.5rem' }}>
-          Ficha del Alumno {totalChildren > 1 ? `(${currentChildIndex + 1} de ${totalChildren})` : ''}
+          Ficha del Alumno {totalChildren > 1 ? `(${currentChildIndex + 1} de ${totalChildren})` : `(Detectado 1)`}
         </h2>
         <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--color-gray-500)' }}>Paso final de inscripción</p>
       </div>
