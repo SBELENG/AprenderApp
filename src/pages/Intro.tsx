@@ -86,14 +86,7 @@ const Intro: React.FC = () => {
               Nueva Inscripción y Pago
               <ArrowRight size={20} />
             </button>
-            <button 
-              className="btn btn-outline btn-block" 
-              style={{ display: 'flex', justifyContent: 'center', gap: '10px', padding: '1rem', color: 'white', borderColor: 'rgba(255,255,255,0.3)' }}
-              onClick={() => navigate('/agenda')}
-            >
-              Agendar mis horas
-              <Clock size={20} />
-            </button>
+
           </div>
         </div>
       </div>
