@@ -16,6 +16,8 @@ const formatDateAR = (date: Date) => {
 
 type Reservation = { date: Date, shiftId: string, shiftLabel: string };
 
+const DAYS_MAP = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+
 const AgendaPadres: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -25,20 +27,36 @@ const AgendaPadres: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [cupoMaximo, setCupoMaximo] = useState(12);
+  const [cuposDetallados, setCuposDetallados] = useState<Record<string, Record<string, number>> | null>(null);
+  const [existingReservas, setExistingReservas] = useState<{ fecha: string, horario: string }[]>([]);
   const [feriadosList, setFeriadosList] = useState<string[]>(['2026-05-25', '2026-06-20']);
+
+  // Generar días del mes actual (simplificado para el mockup)
+  const today = new Date('2026-05-16T10:00:00'); // Usamos la fecha actual simulada
+  const currentMonth = today.getMonth();
+  const currentYear = today.getFullYear();
 
   React.useEffect(() => {
     const fetchConfig = async () => {
       try {
         const localCupo = localStorage.getItem('config_cupo');
         const localFeriados = localStorage.getItem('config_feriados');
+        const localDetallados = localStorage.getItem('config_cupos_detallados');
+        
         if (localCupo) setCupoMaximo(Number(localCupo));
         if (localFeriados) setFeriadosList(localFeriados.split(',').map((s: string) => s.trim()));
+        if (localDetallados) {
+          try {
+            setCuposDetallados(JSON.parse(localDetallados));
+          } catch {}
+        }
 
         const { data } = await supabase.from('configuracion').select('*');
         if (data) {
           const cupoItem = data.find(item => item.clave === 'cupo_maximo');
           const feriadosItem = data.find(item => item.clave === 'feriados');
+          const cuposDetalladosItem = data.find(item => item.clave === 'cupos_detallados');
+          
           if (cupoItem) {
             setCupoMaximo(Number(cupoItem.valor));
             localStorage.setItem('config_cupo', cupoItem.valor);
@@ -48,6 +66,12 @@ const AgendaPadres: React.FC = () => {
             setFeriadosList(list);
             localStorage.setItem('config_feriados', feriadosItem.valor);
           }
+          if (cuposDetalladosItem) {
+            try {
+              setCuposDetallados(JSON.parse(cuposDetalladosItem.valor));
+              localStorage.setItem('config_cupos_detallados', cuposDetalladosItem.valor);
+            } catch {}
+          }
         }
       } catch (err) {
         console.warn("Usando fallback local para configuración:", err);
@@ -55,6 +79,28 @@ const AgendaPadres: React.FC = () => {
     };
     fetchConfig();
   }, []);
+
+  React.useEffect(() => {
+    const fetchExistingReservas = async () => {
+      try {
+        const startDate = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`;
+        const endDate = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-31`;
+        const { data, error } = await supabase
+          .from('reservas')
+          .select('fecha, horario')
+          .gte('fecha', startDate)
+          .lte('fecha', endDate);
+        
+        if (error) throw error;
+        if (data) {
+          setExistingReservas(data);
+        }
+      } catch (err) {
+        console.error("Error cargando reservas existentes:", err);
+      }
+    };
+    fetchExistingReservas();
+  }, [currentMonth, currentYear]);
 
   // Calcular turnos permitidos basados en el pago (por defecto 1 si no hay state)
   const allowedShifts = paymentState 
@@ -64,12 +110,6 @@ const AgendaPadres: React.FC = () => {
           ? 5 * (paymentState.durationCount || 1) * (paymentState.childrenCount || 1)
           : 20 * (paymentState.durationCount || 1) * (paymentState.childrenCount || 1))
     : 100; // Si entran sin pago, sin límite o límite alto
-
-
-  // Generar días del mes actual (simplificado para el mockup)
-  const today = new Date('2026-05-16T10:00:00'); // Usamos la fecha actual simulada
-  const currentMonth = today.getMonth();
-  const currentYear = today.getFullYear();
   
   // Días del mes (1 al 31 para mayo 2026)
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
@@ -93,8 +133,16 @@ const AgendaPadres: React.FC = () => {
     }
 
     setSelectedDate(date);
-    setSelectedDate(date);
     setShowShiftModal(true);
+  };
+
+  const getSlotCapacity = (date: Date, shiftId: string): number => {
+    const dayOfWeek = date.getDay();
+    const dayName = DAYS_MAP[dayOfWeek];
+    if (cuposDetallados && cuposDetallados[dayName] && cuposDetallados[dayName][shiftId] !== undefined) {
+      return cuposDetallados[dayName][shiftId];
+    }
+    return cupoMaximo; // fallback
   };
 
   const handleAddShift = (shiftId: string, shiftLabel: string) => {
@@ -112,6 +160,16 @@ const AgendaPadres: React.FC = () => {
     
     if (countInThisShift >= maxPerShift) {
       alert(`No puedes reservar más de ${maxPerShift} cupo(s) para este mismo horario (corresponde a la cantidad de niños inscriptos).`);
+      return;
+    }
+
+    // Verificar cupo dinámico por día/hora de la academia
+    const capacity = getSlotCapacity(selectedDate, shiftId);
+    const dateString = new Date(selectedDate.getTime() - (selectedDate.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+    const dbCount = existingReservas.filter(r => r.fecha === dateString && r.horario === shiftLabel).length;
+
+    if (dbCount + countInThisShift >= capacity) {
+      alert(`Lo sentimos, no hay más cupo disponible en la academia para este horario.`);
       return;
     }
 
@@ -246,8 +304,6 @@ const AgendaPadres: React.FC = () => {
   };
 
   const isPastOrToday = (day: number) => {
-    // Si estamos en un mes futuro, no bloquea días por ser "pasados" respecto al día actual del mes,
-    // pero para este mockup donde solo vemos el mes actual:
     return day <= today.getDate();
   };
 
@@ -436,23 +492,37 @@ const AgendaPadres: React.FC = () => {
                 const countSelected = reservations.filter(r => r.date.getTime() === selectedDate.getTime() && r.shiftId === shift.id).length;
                 const isSelected = countSelected > 0;
                 
+                const capacity = getSlotCapacity(selectedDate, shift.id);
+                const dateString = new Date(selectedDate.getTime() - (selectedDate.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+                const dbCount = existingReservas.filter(r => r.fecha === dateString && r.horario === shift.label).length;
+                const freeSlots = Math.max(0, capacity - dbCount - countSelected);
+                const isFull = freeSlots === 0 && !isSelected;
+                
                 return (
                   <div 
                     key={shift.id}
                     onClick={() => {
-                      if (countSelected === 0) handleAddShift(shift.id, shift.label);
+                      if (countSelected === 0 && !isFull) handleAddShift(shift.id, shift.label);
                     }}
                     style={{ 
-                      border: `2px solid ${isSelected ? 'var(--color-secondary)' : 'var(--color-gray-300)'}`,
+                      border: `2px solid ${isSelected ? 'var(--color-secondary)' : isFull ? 'var(--color-gray-200)' : 'var(--color-gray-300)'}`,
                       borderRadius: '12px', padding: '1rem', 
-                      cursor: countSelected === 0 ? 'pointer' : 'default',
-                      background: isSelected ? 'var(--color-background)' : 'white',
-                      display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                      cursor: isFull ? 'not-allowed' : countSelected === 0 ? 'pointer' : 'default',
+                      background: isSelected ? 'var(--color-background)' : isFull ? '#F8FAFC' : 'white',
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      opacity: isFull ? 0.7 : 1,
+                      transition: 'all 0.2s'
                     }}
                   >
                     <div>
-                      <p style={{ margin: 0, fontWeight: 'bold', color: 'var(--color-primary)' }}>{shift.label}</p>
-                      <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--color-gray-500)' }}>Cupos libres: {cupoMaximo - countSelected}</p>
+                      <p style={{ margin: 0, fontWeight: 'bold', color: isFull ? 'var(--color-gray-400)' : 'var(--color-primary)' }}>{shift.label}</p>
+                      {isFull ? (
+                        <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--color-primary)', fontWeight: 'bold' }}>Sin cupos disponibles</p>
+                      ) : (
+                        <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--color-gray-500)' }}>
+                          Cupos libres en academia: <b>{freeSlots}</b> (de {capacity})
+                        </p>
+                      )}
                     </div>
                     
                     {isSelected ? (
@@ -463,12 +533,32 @@ const AgendaPadres: React.FC = () => {
                         >-</button>
                         <span style={{ fontWeight: 'bold', color: 'var(--color-secondary)', minWidth: '12px', textAlign: 'center' }}>{countSelected}</span>
                         <button 
-                          onClick={(e) => { e.stopPropagation(); handleAddShift(shift.id, shift.label); }}
-                          style={{ width: '28px', height: '28px', borderRadius: '6px', border: 'none', background: 'var(--color-secondary)', color: 'white', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          onClick={(e) => { 
+                            e.stopPropagation(); 
+                            if (freeSlots > 0) {
+                              handleAddShift(shift.id, shift.label);
+                            } else {
+                              alert("No hay más cupo disponible para este horario.");
+                            }
+                          }}
+                          disabled={freeSlots <= 0}
+                          style={{ 
+                            width: '28px', 
+                            height: '28px', 
+                            borderRadius: '6px', 
+                            border: 'none', 
+                            background: freeSlots <= 0 ? 'var(--color-gray-300)' : 'var(--color-secondary)', 
+                            color: 'white', 
+                            fontWeight: 'bold', 
+                            cursor: freeSlots <= 0 ? 'not-allowed' : 'pointer', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center' 
+                          }}
                         >+</button>
                       </div>
                     ) : (
-                      <CheckCircle2 size={24} color="var(--color-gray-300)" style={{ opacity: 0.5 }} />
+                      <CheckCircle2 size={24} color={isFull ? 'var(--color-gray-200)' : 'var(--color-gray-300)'} style={{ opacity: isFull ? 0.3 : 0.5 }} />
                     )}
                   </div>
                 );
