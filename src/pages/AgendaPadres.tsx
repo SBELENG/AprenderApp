@@ -47,6 +47,8 @@ const AgendaPadres: React.FC = () => {
   React.useEffect(() => {
     const fetchConfig = async () => {
       try {
+        const localCupo = localStorage.getItem('config_cupo');
+        const localFeriados = localStorage.getItem('config_feriados');
         const localDetallados = localStorage.getItem('config_cupos_detallados');
         const localEspecifcos = localStorage.getItem('config_cupos_especificos');
         
