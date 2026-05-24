@@ -268,8 +268,8 @@ const AsistenciaAdmin: React.FC = () => {
         };
         const minutesIngreso = parseTimeToMinutes(asisData.hora_ingreso);
         const minutesRetiro = parseTimeToMinutes(horaActual);
-        // Calcular diferencia en horas, mínimo 0.5 horas, redondeado a 1 decimal
-        const diffHours = Math.max(0.5, Math.round(((minutesRetiro - minutesIngreso) / 60) * 10) / 10);
+        // Calcular diferencia en horas, mínimo 1.0 horas, redondeado a 1 decimal
+        const diffHours = Math.max(1.0, Math.round(((minutesRetiro - minutesIngreso) / 60) * 10) / 10);
         
         await supabase
           .from('jornales')

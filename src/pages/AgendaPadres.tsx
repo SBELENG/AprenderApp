@@ -35,6 +35,7 @@ const AgendaPadres: React.FC = () => {
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [cupoMaximo, setCupoMaximo] = useState(12);
   const [cuposDetallados, setCuposDetallados] = useState<Record<string, Record<string, number>> | null>(null);
+  const [cuposEspecifcos, setCuposEspecifcos] = useState<Record<string, Record<string, number>> | null>(null);
   const [existingReservas, setExistingReservas] = useState<{ fecha: string, horario: string }[]>([]);
   const [feriadosList, setFeriadosList] = useState<string[]>(['2026-05-25', '2026-06-20']);
 
@@ -46,15 +47,19 @@ const AgendaPadres: React.FC = () => {
   React.useEffect(() => {
     const fetchConfig = async () => {
       try {
-        const localCupo = localStorage.getItem('config_cupo');
-        const localFeriados = localStorage.getItem('config_feriados');
         const localDetallados = localStorage.getItem('config_cupos_detallados');
+        const localEspecifcos = localStorage.getItem('config_cupos_especificos');
         
         if (localCupo) setCupoMaximo(Number(localCupo));
         if (localFeriados) setFeriadosList(localFeriados.split(',').map((s: string) => s.trim()));
         if (localDetallados) {
           try {
             setCuposDetallados(JSON.parse(localDetallados));
+          } catch {}
+        }
+        if (localEspecifcos) {
+          try {
+            setCuposEspecifcos(JSON.parse(localEspecifcos));
           } catch {}
         }
 
@@ -77,6 +82,14 @@ const AgendaPadres: React.FC = () => {
             try {
               setCuposDetallados(JSON.parse(cuposDetalladosItem.valor));
               localStorage.setItem('config_cupos_detallados', cuposDetalladosItem.valor);
+            } catch {}
+          }
+          
+          const cuposEspecifcosItem = data.find(item => item.clave === 'cupos_especificos');
+          if (cuposEspecifcosItem) {
+            try {
+              setCuposEspecifcos(JSON.parse(cuposEspecifcosItem.valor));
+              localStorage.setItem('config_cupos_especificos', cuposEspecifcosItem.valor);
             } catch {}
           }
         }
@@ -144,12 +157,22 @@ const AgendaPadres: React.FC = () => {
   };
 
   const getSlotCapacity = (date: Date, shiftId: string): number => {
+    const dateString = getLocalDateStringFromDate(date);
+    
+    // 1. Check specific date override first
+    if (cuposEspecifcos && cuposEspecifcos[dateString] && cuposEspecifcos[dateString][shiftId] !== undefined) {
+      return cuposEspecifcos[dateString][shiftId];
+    }
+    
+    // 2. Fallback to weekly template
     const dayOfWeek = date.getDay();
     const dayName = DAYS_MAP[dayOfWeek];
     if (cuposDetallados && cuposDetallados[dayName] && cuposDetallados[dayName][shiftId] !== undefined) {
       return cuposDetallados[dayName][shiftId];
     }
-    return cupoMaximo; // fallback
+    
+    // 3. Fallback to general limit
+    return cupoMaximo;
   };
 
   const handleAddShift = (shiftId: string, shiftLabel: string) => {

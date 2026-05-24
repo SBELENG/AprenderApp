@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, Settings, Save, CalendarOff, Users, Sparkles, Info } from 'lucide-react';
+import { ChevronLeft, Settings, Save, CalendarOff, Users, Sparkles, Info, Calendar, RotateCcw } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 const DAYS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
@@ -13,11 +13,28 @@ const SHIFTS = [
   { id: '16:00 hs', label: '16:00 a 17:00 hs' }
 ];
 
+const DAYS_ENGLISH_MAP = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+
 interface ShiftConfig {
   [day: string]: {
     [shiftId: string]: number;
   };
 }
+
+interface DateOverrideConfig {
+  [dateString: string]: {
+    [shiftId: string]: number;
+  };
+}
+
+// Helper local de fecha local YYYY-MM-DD
+const getLocalDateString = () => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 // Convierte YYYY-MM-DD a DD-MM-YYYY
 const toLatinFormat = (isoString: string): string => {
@@ -49,6 +66,8 @@ const ConfiguracionAdmin: React.FC = () => {
   const [cupo, setCupo] = useState('4');
   const [feriados, setFeriados] = useState('25-05-2026, 20-06-2026');
   const [isSaving, setIsSaving] = useState(false);
+  
+  // Matriz semanal predeterminada (Lunes a Sábado)
   const [cuposDetallados, setCuposDetallados] = useState<ShiftConfig>(() => {
     const initial: ShiftConfig = {};
     DAYS.forEach(day => {
@@ -64,6 +83,10 @@ const ConfiguracionAdmin: React.FC = () => {
     return initial;
   });
 
+  // Ajustes específicos por Fecha de Calendario
+  const [cuposEspecifcos, setCuposEspecifcos] = useState<DateOverrideConfig>({});
+  const [exceptionDate, setExceptionDate] = useState(getLocalDateString());
+
   useEffect(() => {
     const fetchConfig = async () => {
       try {
@@ -71,12 +94,18 @@ const ConfiguracionAdmin: React.FC = () => {
         const localCupo = localStorage.getItem('config_cupo');
         const localFeriados = localStorage.getItem('config_feriados');
         const localDetallados = localStorage.getItem('config_cupos_detallados');
+        const localEspecifcos = localStorage.getItem('config_cupos_especificos');
 
         if (localCupo) setCupo(localCupo);
         if (localFeriados) setFeriados(toLatinFormat(localFeriados));
         if (localDetallados) {
           try {
             setCuposDetallados(JSON.parse(localDetallados));
+          } catch {}
+        }
+        if (localEspecifcos) {
+          try {
+            setCuposEspecifcos(JSON.parse(localEspecifcos));
           } catch {}
         }
 
@@ -88,6 +117,7 @@ const ConfiguracionAdmin: React.FC = () => {
           const cupoItem = data.find(item => item.clave === 'cupo_maximo');
           const feriadosItem = data.find(item => item.clave === 'feriados');
           const cuposDetalladosItem = data.find(item => item.clave === 'cupos_detallados');
+          const cuposEspecifcosItem = data.find(item => item.clave === 'cupos_especificos');
 
           if (cupoItem) {
             setCupo(cupoItem.valor);
@@ -106,7 +136,7 @@ const ConfiguracionAdmin: React.FC = () => {
               console.error("Error parsing cupos_detallados:", e);
             }
           } else if (cupoItem) {
-            // Inicializar grid si no existía el registro detallado en Supabase
+            // Inicializar grid semanal usando el cupo heredado
             const legacyVal = Number(cupoItem.valor) || 4;
             const initial: ShiftConfig = {};
             DAYS.forEach(day => {
@@ -120,6 +150,13 @@ const ConfiguracionAdmin: React.FC = () => {
               });
             });
             setCuposDetallados(initial);
+          }
+          if (cuposEspecifcosItem) {
+            try {
+              const parsed = JSON.parse(cuposEspecifcosItem.valor);
+              setCuposEspecifcos(parsed);
+              localStorage.setItem('config_cupos_especificos', cuposEspecifcosItem.valor);
+            } catch {}
           }
         }
       } catch (err) {
@@ -137,6 +174,34 @@ const ConfiguracionAdmin: React.FC = () => {
         [shiftId]: Math.max(0, val)
       }
     }));
+  };
+
+  const handleExceptionCellChange = (shiftId: string, val: number) => {
+    setCuposEspecifcos(prev => {
+      const dayConfig = prev[exceptionDate] || {};
+      return {
+        ...prev,
+        [exceptionDate]: {
+          ...dayConfig,
+          [shiftId]: Math.max(0, val)
+        }
+      };
+    });
+  };
+
+  const resetExceptionCell = (shiftId: string) => {
+    setCuposEspecifcos(prev => {
+      const dayConfig = { ...(prev[exceptionDate] || {}) };
+      delete dayConfig[shiftId];
+      
+      const newConfig = { ...prev };
+      if (Object.keys(dayConfig).length === 0) {
+        delete newConfig[exceptionDate];
+      } else {
+        newConfig[exceptionDate] = dayConfig;
+      }
+      return newConfig;
+    });
   };
 
   const applyGeneralCupoToGrid = () => {
@@ -171,17 +236,19 @@ const ConfiguracionAdmin: React.FC = () => {
 
     const isoFeriados = toIsoFormat(feriados);
 
-    // Guardar en localStorage como fallback inmediato
+    // Guardar en localStorage
     localStorage.setItem('config_cupo', cupo);
     localStorage.setItem('config_feriados', isoFeriados);
     localStorage.setItem('config_cupos_detallados', JSON.stringify(cuposDetallados));
+    localStorage.setItem('config_cupos_especificos', JSON.stringify(cuposEspecifcos));
 
     try {
       // Guardar en Supabase
       const { error } = await supabase.from('configuracion').upsert([
         { clave: 'cupo_maximo', valor: cupo },
         { clave: 'feriados', valor: isoFeriados },
-        { clave: 'cupos_detallados', valor: JSON.stringify(cuposDetallados) }
+        { clave: 'cupos_detallados', valor: JSON.stringify(cuposDetallados) },
+        { clave: 'cupos_especificos', valor: JSON.stringify(cuposEspecifcos) }
       ]);
       
       if (error) throw error;
@@ -193,6 +260,21 @@ const ConfiguracionAdmin: React.FC = () => {
       setIsSaving(false);
     }
   };
+
+  // Obtener el día de la semana para la fecha seleccionada en excepciones
+  const getExceptionDayName = (): string => {
+    if (!exceptionDate) return 'Lunes';
+    const dateParts = exceptionDate.split('-');
+    if (dateParts.length === 3) {
+      // Crear en local timezone
+      const d = new Date(Number(dateParts[0]), Number(dateParts[1]) - 1, Number(dateParts[2]));
+      return DAYS_ENGLISH_MAP[d.getDay()];
+    }
+    return 'Lunes';
+  };
+
+  const currentExceptionDayName = getExceptionDayName();
+  const isSundayException = currentExceptionDayName === 'Domingo';
 
   return (
     <div className="auth-layout" style={{ background: 'var(--color-white)', maxWidth: '960px', margin: '0 auto' }}>
@@ -212,7 +294,7 @@ const ConfiguracionAdmin: React.FC = () => {
 
       <div style={{ padding: '1.5rem', flex: 1, display: 'flex', flexDirection: 'column' }}>
         
-        {/* Cupo General */}
+        {/* Sección 1: Cupo General */}
         <div style={{ marginBottom: '2.5rem', background: '#F8FAFC', padding: '1.25rem', borderRadius: '16px', border: '1px solid #E2E8F0' }}>
           <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--color-primary)', marginBottom: '0.75rem', fontSize: '1.1rem' }}>
             <Users size={20} />
@@ -236,22 +318,137 @@ const ConfiguracionAdmin: React.FC = () => {
               style={{ height: '46px', display: 'flex', alignItems: 'center', gap: '0.5rem', whiteSpace: 'nowrap' }}
             >
               <Sparkles size={16} />
-              Aplicar a toda la grilla
+              Aplicar a plantilla predeterminada
             </button>
           </div>
           <p style={{ fontSize: '0.8rem', color: 'var(--color-gray-500)', marginTop: '8px' }}>
-            Establece un número general aquí y haz click en "Aplicar a toda la grilla" para rellenar automáticamente la matriz inferior.
+            Establece un número general aquí y haz click en "Aplicar a plantilla" para rellenar de forma masiva la matriz semanal.
           </p>
         </div>
 
-        {/* Cupo Detallado por Día/Hora */}
+        {/* Sección 2: Ajuste de Cupos por Fecha Específica */}
+        <div style={{ marginBottom: '2.5rem', background: '#F0F9FF', padding: '1.5rem', borderRadius: '20px', border: '1px solid #BAE6FD' }}>
+          <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#0369A1', marginBottom: '0.5rem', fontSize: '1.15rem' }}>
+            <Calendar size={22} color="#0284C7" />
+            Ajuste de Cupos por Fecha Específica (Excepciones)
+          </h3>
+          <p style={{ fontSize: '0.85rem', color: '#0369A1', marginBottom: '1.25rem' }}>
+            ¿No todos los Lunes asiste la misma cantidad de maestras? Selecciona un <b>día específico del mes</b> para modificar individualmente su capacidad.
+          </p>
+
+          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '1.5rem' }}>
+            <div style={{ flex: '1', minWidth: '200px' }}>
+              <label className="input-label" style={{ color: '#0369A1', fontWeight: 'bold' }}>1. Selecciona la Fecha a Ajustar</label>
+              <input 
+                type="date"
+                className="input-field"
+                value={exceptionDate}
+                onChange={(e) => setExceptionDate(e.target.value)}
+                style={{ background: 'white', borderColor: '#0284C7' }}
+              />
+            </div>
+            <div style={{ padding: '0.75rem 1rem', background: 'white', borderRadius: '12px', border: '1px solid #BAE6FD', minWidth: '220px' }}>
+              <span style={{ fontSize: '0.8rem', color: 'var(--color-gray-500)' }}>Visualización Latina:</span>
+              <p style={{ margin: 0, fontWeight: 'bold', color: '#0369A1', fontSize: '1.1rem' }}>
+                {toLatinFormat(exceptionDate)} <span style={{ fontSize: '0.85rem', fontWeight: 'normal', color: 'var(--color-gray-500)' }}>({currentExceptionDayName})</span>
+              </p>
+            </div>
+          </div>
+
+          {isSundayException ? (
+            <div style={{ padding: '1.5rem', background: 'white', border: '1px dashed #FDA4AF', borderRadius: '12px', textAlign: 'center', color: '#E11D48' }}>
+              La academia está cerrada los Domingos. No es necesario configurar cupos para esta fecha.
+            </div>
+          ) : (
+            <div style={{ background: 'white', borderRadius: '16px', padding: '1rem', border: '1px solid #E2E8F0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+              <h4 style={{ margin: '0 0 1rem', color: 'var(--color-primary)', fontSize: '0.95rem', borderBottom: '1px solid #F1F5F9', paddingBottom: '0.5rem' }}>
+                Configuración para el día {toLatinFormat(exceptionDate)}:
+              </h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {SHIFTS.map(shift => {
+                  const isSatAfternoon = currentExceptionDayName === 'Sábado' && ['14:00 hs', '15:00 hs', '16:00 hs'].includes(shift.id);
+                  const defaultValue = cuposDetallados[currentExceptionDayName]?.[shift.id] !== undefined 
+                    ? cuposDetallados[currentExceptionDayName][shift.id] 
+                    : 4;
+
+                  const hasOverride = cuposEspecifcos[exceptionDate]?.[shift.id] !== undefined;
+                  const currentValue = hasOverride 
+                    ? cuposEspecifcos[exceptionDate][shift.id] 
+                    : defaultValue;
+
+                  return (
+                    <div 
+                      key={shift.id} 
+                      style={{ 
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
+                        padding: '0.5rem 0.75rem', borderRadius: '10px',
+                        background: isSatAfternoon ? '#F8FAFC' : hasOverride ? '#ECFDF5' : 'white',
+                        border: `1px solid ${hasOverride ? '#A7F3D0' : '#E2E8F0'}`
+                      }}
+                    >
+                      <div>
+                        <span style={{ fontWeight: 'bold', color: 'var(--color-primary)' }}>{shift.label}</span>
+                        {isSatAfternoon ? (
+                          <span style={{ fontSize: '0.75rem', color: '#EF4444', marginLeft: '0.5rem', fontWeight: 'bold' }}>(Cerrado)</span>
+                        ) : (
+                          <span style={{ fontSize: '0.75rem', color: 'var(--color-gray-500)', marginLeft: '0.5rem' }}>
+                            {hasOverride ? `(Predeterminado: ${defaultValue})` : '(Usando plantilla predeterminada)'}
+                          </span>
+                        )}
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        {isSatAfternoon ? (
+                          <span style={{ fontSize: '0.8rem', color: 'var(--color-gray-400)' }}>N/A</span>
+                        ) : (
+                          <>
+                            <input 
+                              type="number"
+                              min={0}
+                              value={currentValue}
+                              onChange={(e) => handleExceptionCellChange(shift.id, parseInt(e.target.value) || 0)}
+                              style={{
+                                width: '60px',
+                                padding: '6px',
+                                textAlign: 'center',
+                                borderRadius: '8px',
+                                border: `1px solid ${hasOverride ? '#10B981' : '#CBD5E1'}`,
+                                outline: 'none',
+                                fontSize: '0.9rem',
+                                fontWeight: 'bold',
+                                color: hasOverride ? '#047857' : 'var(--color-primary)',
+                                background: 'white'
+                              }}
+                            />
+                            {hasOverride && (
+                              <button 
+                                type="button"
+                                onClick={() => resetExceptionCell(shift.id)}
+                                style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                                title="Volver al valor predeterminado"
+                              >
+                                <RotateCcw size={16} />
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Sección 3: Plantilla Semanal Predeterminada */}
         <div style={{ marginBottom: '2.5rem' }}>
           <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--color-primary)', marginBottom: '0.5rem', fontSize: '1.1rem' }}>
             <Sparkles size={20} color="var(--color-secondary)" />
-            Cupos por Día y Horario
+            Matriz Predeterminada (Plantilla Semanal Base)
           </h3>
           <p style={{ fontSize: '0.85rem', color: 'var(--color-gray-500)', marginBottom: '1.25rem' }}>
-            Modifica la capacidad de alumnos en cada celda según la disponibilidad de maestras por día y hora. Sábados de tarde se encuentran inactivos.
+            Define aquí la matriz semanal de cupos base. Cuando un día no tenga un "Ajuste específico" en la sección superior, heredará automáticamente estos valores.
           </p>
 
           <div style={{ overflowX: 'auto', border: '1px solid #E2E8F0', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
@@ -296,9 +493,7 @@ const ConfiguracionAdmin: React.FC = () => {
                                 fontSize: '0.9rem',
                                 fontWeight: 'bold',
                                 color: 'var(--color-primary)',
-                                background: 'white',
-                                WebkitAppearance: 'none',
-                                margin: 0
+                                background: 'white'
                               }}
                             />
                           )}
@@ -312,7 +507,7 @@ const ConfiguracionAdmin: React.FC = () => {
           </div>
         </div>
 
-        {/* Feriados en Formato Latino */}
+        {/* Sección 4: Feriados en Formato Latino */}
         <div style={{ marginBottom: '2.5rem', background: '#F8FAFC', padding: '1.25rem', borderRadius: '16px', border: '1px solid #E2E8F0' }}>
           <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--color-primary)', marginBottom: '0.75rem', fontSize: '1.1rem' }}>
             <CalendarOff size={20} />
