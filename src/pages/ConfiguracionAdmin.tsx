@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, Settings, Save, CalendarOff, Users, Sparkles, Check, Info } from 'lucide-react';
+import { ChevronLeft, Settings, Save, CalendarOff, Users, Sparkles, Info } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 const DAYS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];

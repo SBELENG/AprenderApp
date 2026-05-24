@@ -27,9 +27,17 @@ type Maestra = {
   nombre: string;
 };
 
+const getLocalDateString = () => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const AsistenciaAdmin: React.FC = () => {
   const navigate = useNavigate();
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(getLocalDateString());
   const [alumnos, setAlumnos] = useState<Alumno[]>([]);
   const [maestras, setMaestras] = useState<Maestra[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -194,7 +202,7 @@ const AsistenciaAdmin: React.FC = () => {
         .from('asistencia')
         .insert([{
           alumno_id: id,
-          fecha: new Date().toISOString().split('T')[0],
+          fecha: selectedDate,
           hora_ingreso: horaActual,
           maestra_id: selectedMaestraId
         }]);
@@ -229,8 +237,18 @@ const AsistenciaAdmin: React.FC = () => {
     }
 
     const horaActual = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+    const alumno = alumnos.find(a => a.id === activeModalId);
     
     try {
+      // 1. Obtener la hora de ingreso y maestra de la asistencia antes de actualizar
+      const { data: asisData } = await supabase
+        .from('asistencia')
+        .select('hora_ingreso, maestra_id')
+        .eq('alumno_id', activeModalId)
+        .eq('fecha', selectedDate)
+        .single();
+
+      // 2. Registrar el retiro en la asistencia
       const { error } = await supabase
         .from('asistencia')
         .update({
@@ -242,11 +260,31 @@ const AsistenciaAdmin: React.FC = () => {
 
       if (error) throw error;
 
+      // 3. Si hay maestra y hora de ingreso, calcular horas y registrarlas en jornales
+      if (asisData && asisData.maestra_id && asisData.hora_ingreso) {
+        const parseTimeToMinutes = (timeStr: string): number => {
+          const [hrs, mins] = timeStr.split(':').map(Number);
+          return hrs * 60 + mins;
+        };
+        const minutesIngreso = parseTimeToMinutes(asisData.hora_ingreso);
+        const minutesRetiro = parseTimeToMinutes(horaActual);
+        // Calcular diferencia en horas, mínimo 0.5 horas, redondeado a 1 decimal
+        const diffHours = Math.max(0.5, Math.round(((minutesRetiro - minutesIngreso) / 60) * 10) / 10);
+        
+        await supabase
+          .from('jornales')
+          .insert([{
+            maestra_id: asisData.maestra_id,
+            horas: diffHours,
+            observaciones: `Clase con ${alumno?.nombre || 'Alumno'} (${asisData.hora_ingreso} a ${horaActual})`,
+            fecha: selectedDate
+          }]);
+      }
+
       setAlumnos(prev => prev.map(a => 
         a.id === activeModalId ? { ...a, estado: 'Retirado', horaRetiro: horaActual, observaciones: observacionTemp } : a
       ));
 
-      const alumno = alumnos.find(a => a.id === activeModalId);
       showPush(`Notificación enviada a padres: "¡${alumno?.nombre} fue retirado a las ${horaActual}! Observación: ${observacionTemp}"`);
     } catch (error: any) {
       alert('Error al registrar retiro: ' + error.message);

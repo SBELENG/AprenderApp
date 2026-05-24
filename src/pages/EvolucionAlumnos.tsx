@@ -24,7 +24,16 @@ type Alumno = {
   historial: Nota[];
 };
 
-// Los datos vendrán de Supabase
+const formatDateAR = (dateStr: string) => {
+  if (!dateStr) return '';
+  const parts = dateStr.split('-');
+  if (parts.length === 3) {
+    if (parts[0].length === 4) {
+      return `${parts[2]}-${parts[1]}-${parts[0]}`;
+    }
+  }
+  return dateStr;
+};
 
 const EvolucionAlumnos: React.FC = () => {
   const navigate = useNavigate();
@@ -269,7 +278,7 @@ const EvolucionAlumnos: React.FC = () => {
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
                       <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--color-secondary)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                         <Calendar size={12} />
-                        {nota.fecha}
+                        {formatDateAR(nota.fecha)}
                       </span>
                       <span style={{ fontSize: '0.75rem', color: 'var(--color-gray-400)' }}>Por {nota.maestra}</span>
                     </div>

@@ -26,9 +26,17 @@ const formatDateStringAR = (dateStr: string) => {
   return dateStr;
 };
 
+const getLocalDateString = () => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const AgendaAdmin: React.FC = () => {
   const navigate = useNavigate();
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(getLocalDateString());
   const [asistencia, setAsistencia] = useState<AsistenciaRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 

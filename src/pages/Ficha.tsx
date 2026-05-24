@@ -139,7 +139,10 @@ const Ficha: React.FC = () => {
               monto: paymentState.total / totalChildren,
               metodo: paymentState.metodo || 'Mercado Pago',
               codigo_efectivo: paymentState.codigo_efectivo || null,
-              fecha: new Date().toISOString().split('T')[0]
+              fecha: (() => {
+                const d = new Date();
+                return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+              })()
             }]);
           if (pagoError) console.error('Error registrando pago:', pagoError);
         }

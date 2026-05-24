@@ -11,6 +11,25 @@ type Maestra = {
   horasMes: number;
 };
 
+const getLocalDateString = () => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const formatDateAR = (dateStr: string) => {
+  if (!dateStr) return '';
+  const parts = dateStr.split('-');
+  if (parts.length === 3) {
+    if (parts[0].length === 4) {
+      return `${parts[2]}-${parts[1]}-${parts[0]}`;
+    }
+  }
+  return dateStr;
+};
+
 const Maestras: React.FC = () => {
   const navigate = useNavigate();
   const [maestras, setMaestras] = useState<Maestra[]>([]);
@@ -108,7 +127,7 @@ const Maestras: React.FC = () => {
           maestra_id: selectedMaestra.id,
           horas: newHoras.horas,
           observaciones: newHoras.observaciones,
-          fecha: new Date().toISOString().split('T')[0]
+          fecha: getLocalDateString()
         }]);
 
       if (error) throw error;
@@ -280,7 +299,7 @@ const Maestras: React.FC = () => {
                         {jornales.filter(j => j.maestra_id === maestra.id && j.pagado !== true).map((j, idx) => (
                           <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #E5E7EB', paddingBottom: '0.5rem', fontSize: '0.85rem' }}>
                             <div>
-                              <span style={{ fontWeight: 'bold', color: 'var(--color-gray-800)' }}>{j.fecha}</span>
+                              <span style={{ fontWeight: 'bold', color: 'var(--color-gray-800)' }}>{formatDateAR(j.fecha)}</span>
                               <span style={{ color: 'var(--color-gray-500)', marginLeft: '0.5rem' }}>{j.observaciones || 'Sin detalle'}</span>
                             </div>
                             <span style={{ fontWeight: 'bold', color: 'var(--color-secondary)' }}>{j.horas} hs</span>

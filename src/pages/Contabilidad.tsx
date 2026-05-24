@@ -15,6 +15,14 @@ const formatDateStringAR = (dateStr: string) => {
   return dateStr;
 };
 
+const getLocalDateString = () => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 type Transaccion = {
   id: string;
   fecha: string;
@@ -113,7 +121,7 @@ const Contabilidad: React.FC = () => {
           alumno_id: newPago.alumno_id === 'nuevo' ? null : newPago.alumno_id,
           monto: newPago.monto,
           metodo: newPago.metodo,
-          fecha: new Date().toISOString().split('T')[0],
+          fecha: getLocalDateString(),
           codigo_efectivo: newPago.metodo === 'Efectivo' ? generadorCodigo : null
         }]);
 

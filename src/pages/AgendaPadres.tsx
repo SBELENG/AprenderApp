@@ -14,6 +14,13 @@ const formatDateAR = (date: Date) => {
   return `${day}-${month}-${year}`;
 };
 
+const getLocalDateStringFromDate = (d: Date): string => {
+  const yr = d.getFullYear();
+  const mn = String(d.getMonth() + 1).padStart(2, '0');
+  const dy = String(d.getDate()).padStart(2, '0');
+  return `${yr}-${mn}-${dy}`;
+};
+
 type Reservation = { date: Date, shiftId: string, shiftLabel: string };
 
 const DAYS_MAP = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
@@ -119,7 +126,7 @@ const AgendaPadres: React.FC = () => {
 
   const handleDayClick = (day: number) => {
     const date = new Date(currentYear, currentMonth, day);
-    const dateString = date.toISOString().split('T')[0];
+    const dateString = getLocalDateStringFromDate(date);
     const dayOfWeek = date.getDay(); // 0 = Domingo, 1 = Lunes, ..., 6 = Sábado
     
     // No permitir domingos o feriados
@@ -165,7 +172,7 @@ const AgendaPadres: React.FC = () => {
 
     // Verificar cupo dinámico por día/hora de la academia
     const capacity = getSlotCapacity(selectedDate, shiftId);
-    const dateString = new Date(selectedDate.getTime() - (selectedDate.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+    const dateString = getLocalDateStringFromDate(selectedDate);
     const dbCount = existingReservas.filter(r => r.fecha === dateString && r.horario === shiftLabel).length;
 
     if (dbCount + countInThisShift >= capacity) {
@@ -206,7 +213,7 @@ const AgendaPadres: React.FC = () => {
           }
 
           // Convertir la fecha a formato local YYYY-MM-DD correcto
-          const fechaLocal = new Date(r.date.getTime() - (r.date.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+          const fechaLocal = getLocalDateStringFromDate(r.date);
 
           return {
             alumno_nombre: assignedName,
@@ -295,7 +302,7 @@ const AgendaPadres: React.FC = () => {
   };
 
   const isFeriado = (day: number) => {
-    const dateString = new Date(currentYear, currentMonth, day).toISOString().split('T')[0];
+    const dateString = getLocalDateStringFromDate(new Date(currentYear, currentMonth, day));
     return feriadosList.includes(dateString);
   };
 
@@ -493,7 +500,7 @@ const AgendaPadres: React.FC = () => {
                 const isSelected = countSelected > 0;
                 
                 const capacity = getSlotCapacity(selectedDate, shift.id);
-                const dateString = new Date(selectedDate.getTime() - (selectedDate.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+                const dateString = getLocalDateStringFromDate(selectedDate);
                 const dbCount = existingReservas.filter(r => r.fecha === dateString && r.horario === shift.label).length;
                 const freeSlots = Math.max(0, capacity - dbCount - countSelected);
                 const isFull = freeSlots === 0 && !isSelected;
