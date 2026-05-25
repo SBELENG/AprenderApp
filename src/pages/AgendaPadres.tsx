@@ -355,7 +355,8 @@ const AgendaPadres: React.FC = () => {
       shifts.push(
         { id: '14:00 hs', label: '14:00 a 15:00 hs', disabled: false },
         { id: '15:00 hs', label: '15:00 a 16:00 hs', disabled: false },
-        { id: '16:00 hs', label: '16:00 a 17:00 hs', disabled: false }
+        { id: '16:00 hs', label: '16:00 a 17:00 hs', disabled: false },
+        { id: '17:00 hs', label: '17:00 a 18:00 hs', disabled: false }
       );
     }
     return shifts;

@@ -12,7 +12,8 @@ const SHIFTS = [
   { id: '11:00 hs', label: '11:00 a 12:00 hs' },
   { id: '14:00 hs', label: '14:00 a 15:00 hs' },
   { id: '15:00 hs', label: '15:00 a 16:00 hs' },
-  { id: '16:00 hs', label: '16:00 a 17:00 hs' }
+  { id: '16:00 hs', label: '16:00 a 17:00 hs' },
+  { id: '17:00 hs', label: '17:00 a 18:00 hs' }
 ];
 
 const DAYS_ENGLISH_MAP = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
@@ -79,7 +80,7 @@ const ConfiguracionAdmin: React.FC = () => {
     DAYS.forEach(day => {
       initial[day] = {};
       SHIFTS.forEach(shift => {
-        if (day === 'Sábado' && ['14:00 hs', '15:00 hs', '16:00 hs'].includes(shift.id)) {
+        if (day === 'Sábado' && ['14:00 hs', '15:00 hs', '16:00 hs', '17:00 hs'].includes(shift.id)) {
           initial[day][shift.id] = 0;
         } else {
           initial[day][shift.id] = 4;
@@ -207,7 +208,7 @@ const ConfiguracionAdmin: React.FC = () => {
     DAYS.forEach(day => {
       updated[day] = {};
       SHIFTS.forEach(shift => {
-        if (day === 'Sábado' && ['14:00 hs', '15:00 hs', '16:00 hs'].includes(shift.id)) {
+        if (day === 'Sábado' && ['14:00 hs', '15:00 hs', '16:00 hs', '17:00 hs'].includes(shift.id)) {
           updated[day][shift.id] = 0;
         } else {
           updated[day][shift.id] = val;
@@ -312,7 +313,7 @@ const ConfiguracionAdmin: React.FC = () => {
 
     const daysInMonthCount = new Date(previewYear, previewMonth + 1, 0).getDate();
     
-    const tableColumn = ["Fecha", "Día", "09:00-10:00", "10:00-11:00", "11:00-12:00", "14:00-15:00", "15:00-16:00", "16:00-17:00"];
+    const tableColumn = ["Fecha", "Día", "09:00-10:00", "10:00-11:00", "11:00-12:00", "14:00-15:00", "15:00-16:00", "16:00-17:00", "17:00-18:00"];
     const tableRows: any[] = [];
     
     const cleanFeriadosList = feriados.split(',').map(s => toIsoFormat(s.trim()));
@@ -328,9 +329,9 @@ const ConfiguracionAdmin: React.FC = () => {
       const dateFormatted = `${String(day).padStart(2, '0')}-${String(previewMonth + 1).padStart(2, '0')}-${previewYear}`;
       
       if (isSunday) {
-        tableRows.push([dateFormatted, dayName, "Cerrado", "Cerrado", "Cerrado", "Cerrado", "Cerrado", "Cerrado"]);
+        tableRows.push([dateFormatted, dayName, "Cerrado", "Cerrado", "Cerrado", "Cerrado", "Cerrado", "Cerrado", "Cerrado"]);
       } else if (isFeriadoDay) {
-        tableRows.push([dateFormatted, dayName, "Feriado", "Feriado", "Feriado", "Feriado", "Feriado", "Feriado"]);
+        tableRows.push([dateFormatted, dayName, "Feriado", "Feriado", "Feriado", "Feriado", "Feriado", "Feriado", "Feriado"]);
       } else {
         const row = [
           dateFormatted,
@@ -341,6 +342,7 @@ const ConfiguracionAdmin: React.FC = () => {
           dayOfWeek === 6 ? "Cerrado" : getSlotCapacityForDate(date, '14:00 hs').toString(),
           dayOfWeek === 6 ? "Cerrado" : getSlotCapacityForDate(date, '15:00 hs').toString(),
           dayOfWeek === 6 ? "Cerrado" : getSlotCapacityForDate(date, '16:00 hs').toString(),
+          dayOfWeek === 6 ? "Cerrado" : getSlotCapacityForDate(date, '17:00 hs').toString(),
         ];
         tableRows.push(row);
       }
@@ -516,7 +518,7 @@ const ConfiguracionAdmin: React.FC = () => {
                       ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.50rem', marginTop: '0.25rem' }}>
                           {SHIFTS.map(shift => {
-                            const isSatAfternoon = dayOfWeek === 6 && ['14:00 hs', '15:00 hs', '16:00 hs'].includes(shift.id);
+                            const isSatAfternoon = dayOfWeek === 6 && ['14:00 hs', '15:00 hs', '16:00 hs', '17:00 hs'].includes(shift.id);
                             const capacity = isSatAfternoon ? 0 : getSlotCapacityForDate(date, shift.id);
                             const hasOverride = !isSatAfternoon && cuposEspecifcos && cuposEspecifcos[dateString] && cuposEspecifcos[dateString][shift.id] !== undefined;
 
@@ -616,7 +618,7 @@ const ConfiguracionAdmin: React.FC = () => {
               </h4>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 {SHIFTS.map(shift => {
-                  const isSatAfternoon = currentExceptionDayName === 'Sábado' && ['14:00 hs', '15:00 hs', '16:00 hs'].includes(shift.id);
+                  const isSatAfternoon = currentExceptionDayName === 'Sábado' && ['14:00 hs', '15:00 hs', '16:00 hs', '17:00 hs'].includes(shift.id);
                   const defaultValue = cuposDetallados[currentExceptionDayName]?.[shift.id] !== undefined 
                     ? cuposDetallados[currentExceptionDayName][shift.id] 
                     : 4;
@@ -718,7 +720,7 @@ const ConfiguracionAdmin: React.FC = () => {
                       {shift.label}
                     </td>
                     {DAYS.map(day => {
-                      const isSatAfternoon = day === 'Sábado' && ['14:00 hs', '15:00 hs', '16:00 hs'].includes(shift.id);
+                      const isSatAfternoon = day === 'Sábado' && ['14:00 hs', '15:00 hs', '16:00 hs', '17:00 hs'].includes(shift.id);
                       const currentVal = cuposDetallados[day]?.[shift.id] !== undefined ? cuposDetallados[day][shift.id] : 4;
                       
                       return (
