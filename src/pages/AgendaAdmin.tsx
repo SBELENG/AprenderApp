@@ -65,15 +65,19 @@ const AgendaAdmin: React.FC = () => {
         .select('*')
         .eq('fecha', selectedDate);
 
+      // Filtrar defensivamente en memoria por fecha
+      const reservasDelDia = (reservasData || []).filter(r => r.fecha === selectedDate);
+      const asistenciaDelDia = (asistenciaData || []).filter(as => as.fecha === selectedDate);
+
       // 4. Mapear
-      const mapped: AsistenciaRecord[] = (reservasData || []).map(r => {
+      const mapped: AsistenciaRecord[] = reservasDelDia.map(r => {
         // Buscar el alumno por nombre (ya que la reserva guarda el nombre por el array)
         const alumnoInfo = alumnosData?.find(a => a.nombre === r.alumno_nombre);
         
         // Buscar si ya marcó ingreso/retiro
         let estado = 'Pendiente';
-        if (alumnoInfo && asistenciaData) {
-          const asis = asistenciaData.find(as => as.alumno_id === alumnoInfo.id);
+        if (alumnoInfo) {
+          const asis = asistenciaDelDia.find(as => as.alumno_id === alumnoInfo.id);
           if (asis) {
             estado = asis.hora_retiro ? 'Retirado' : 'Presente';
           }

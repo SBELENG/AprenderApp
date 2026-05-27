@@ -33,6 +33,21 @@ const Ficha: React.FC = () => {
     asignaturas: ''
   });
 
+  const [existingAlumnos, setExistingAlumnos] = useState<any[]>([]);
+  const [familyData, setFamilyData] = useState<any>(null);
+  const [hasSearchedFamily, setHasSearchedFamily] = useState(false);
+  const [selectedSiblingIds, setSelectedSiblingIds] = useState<string[]>([]);
+  const [prefillMode, setPrefillMode] = useState<'confirm_all' | 'new_sibling' | 'selector' | 'none'>('none');
+  const [isLoadingFamily, setIsLoadingFamily] = useState(false);
+
+  const getLocalDateString = () => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   useEffect(() => {
     if (formData.nacimiento) {
       const birthDate = new Date(formData.nacimiento);
@@ -45,6 +60,153 @@ const Ficha: React.FC = () => {
       setFormData(prev => ({ ...prev, edad: age.toString() }));
     }
   }, [formData.nacimiento]);
+
+  useEffect(() => {
+    const fetchFamilyAndAlumnos = async () => {
+      if (!paymentState?.telefono || hasSearchedFamily) return;
+      setIsLoadingFamily(true);
+      try {
+        const { data: fams, error: famError } = await supabase
+          .from('familias')
+          .select('*')
+          .eq('telefono', paymentState.telefono);
+
+        if (famError) throw famError;
+
+        if (fams && fams.length > 0) {
+          const fam = fams[0];
+          setFamiliaId(fam.id);
+          setFamilyData(fam);
+
+          const { data: alums, error: alumsError } = await supabase
+            .from('alumnos')
+            .select('*')
+            .eq('familia_id', fam.id);
+
+          if (alumsError) throw alumsError;
+
+          if (alums && alums.length > 0) {
+            setExistingAlumnos(alums);
+
+            if (alums.length === totalChildren) {
+              setPrefillMode('confirm_all');
+            } else if (alums.length < totalChildren) {
+              setPrefillMode('new_sibling');
+            } else {
+              setPrefillMode('selector');
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Error al buscar ficha familiar:", err);
+      } finally {
+        setHasSearchedFamily(true);
+        setIsLoadingFamily(false);
+      }
+    };
+
+    fetchFamilyAndAlumnos();
+  }, [paymentState?.telefono, hasSearchedFamily, totalChildren]);
+
+  const handleQuickConfirm = async () => {
+    setIsSubmitting(true);
+    try {
+      const nuevosNombres = existingAlumnos.map(a => a.nombre);
+      
+      for (let i = 0; i < existingAlumnos.length; i++) {
+        const alum = existingAlumnos[i];
+        if (paymentState) {
+          if (paymentState.metodo === 'Efectivo' && paymentState.codigo_efectivo) {
+            if (i === 0) {
+              await supabase
+                .from('transacciones')
+                .update({ alumno_id: alum.id })
+                .eq('codigo_efectivo', paymentState.codigo_efectivo);
+            }
+          } else {
+            await supabase
+              .from('transacciones')
+              .insert([{
+                alumno_id: alum.id,
+                monto: paymentState.total / totalChildren,
+                metodo: paymentState.metodo || 'Mercado Pago',
+                codigo_efectivo: paymentState.codigo_efectivo || null,
+                fecha: getLocalDateString()
+              }]);
+          }
+        }
+      }
+      alert('¡Fichas confirmadas exitosamente para este período! Redireccionando a la agenda...');
+      navigate('/agenda', { state: { ...paymentState, nombres: nuevosNombres } });
+    } catch (err: any) {
+      alert("Error al confirmar fichas: " + err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleStartNewSibling = () => {
+    setNombresAlumnos(existingAlumnos.map(a => a.nombre));
+    setCurrentChildIndex(existingAlumnos.length);
+    setFormData(prev => ({
+      ...prev,
+      emergencia: familyData?.emergencia_contacto || '',
+      autorizados: familyData?.autorizados_retiro || '',
+      obraSocial: familyData?.obra_social || ''
+    }));
+    setPrefillMode('none');
+  };
+
+  const handleSiblingCheckboxChange = (id: string) => {
+    if (selectedSiblingIds.includes(id)) {
+      setSelectedSiblingIds(prev => prev.filter(x => x !== id));
+    } else {
+      if (selectedSiblingIds.length >= totalChildren) {
+        setSelectedSiblingIds(prev => [...prev.slice(1), id]);
+      } else {
+        setSelectedSiblingIds(prev => [...prev, id]);
+      }
+    }
+  };
+
+  const handleConfirmSelectedSiblings = async () => {
+    setIsSubmitting(true);
+    try {
+      const selectedAlums = existingAlumnos.filter(a => selectedSiblingIds.includes(a.id));
+      const nuevosNombres = selectedAlums.map(a => a.nombre);
+
+      for (let i = 0; i < selectedAlums.length; i++) {
+        const alum = selectedAlums[i];
+        if (paymentState) {
+          if (paymentState.metodo === 'Efectivo' && paymentState.codigo_efectivo) {
+            if (i === 0) {
+              await supabase
+                .from('transacciones')
+                .update({ alumno_id: alum.id })
+                .eq('codigo_efectivo', paymentState.codigo_efectivo);
+            }
+          } else {
+            await supabase
+              .from('transacciones')
+              .insert([{
+                alumno_id: alum.id,
+                monto: paymentState.total / totalChildren,
+                metodo: paymentState.metodo || 'Mercado Pago',
+                codigo_efectivo: paymentState.codigo_efectivo || null,
+                fecha: getLocalDateString()
+              }]);
+          }
+        }
+      }
+
+      alert('¡Fichas confirmadas exitosamente! Redireccionando a la agenda...');
+      navigate('/agenda', { state: { ...paymentState, nombres: nuevosNombres } });
+    } catch (err: any) {
+      alert("Error al confirmar datos: " + err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handlePhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -148,6 +310,26 @@ const Ficha: React.FC = () => {
         }
       }
 
+      // Si finalizamos y había alumnos pre-confirmados, registrar sus transacciones
+      if (currentChildIndex === totalChildren - 1 && existingAlumnos.length > 0) {
+        for (let i = 0; i < existingAlumnos.length; i++) {
+          const alum = existingAlumnos[i];
+          if (paymentState) {
+            if (!(paymentState.metodo === 'Efectivo' && paymentState.codigo_efectivo && i === 0)) {
+              await supabase
+                .from('transacciones')
+                .insert([{
+                  alumno_id: alum.id,
+                  monto: paymentState.total / totalChildren,
+                  metodo: paymentState.metodo || 'Mercado Pago',
+                  codigo_efectivo: paymentState.codigo_efectivo || null,
+                  fecha: getLocalDateString()
+                }]);
+            }
+          }
+        }
+      }
+
       const nuevosNombres = [...nombresAlumnos, formData.nombre];
       setNombresAlumnos(nuevosNombres);
 
@@ -184,6 +366,294 @@ const Ficha: React.FC = () => {
       setIsSubmitting(false);
     }
   };
+
+  if (isLoadingFamily) {
+    return (
+      <div className="auth-layout" style={{ background: 'var(--color-white)', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+        <div style={{ textAlign: 'center', color: 'var(--color-primary)' }}>
+          <span style={{ display: 'inline-block', fontSize: '2.5rem', marginBottom: '1rem', animation: 'spin 1.5s linear infinite' }}>🔄</span>
+          <p style={{ fontWeight: 'bold' }}>Buscando historial familiar...</p>
+        </div>
+        <style>{`
+          @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        `}</style>
+      </div>
+    );
+  }
+
+  if (prefillMode === 'confirm_all') {
+    return (
+      <div className="auth-layout" style={{ background: 'var(--color-white)' }}>
+        <div className="auth-header" style={{ paddingBottom: '1rem', background: 'var(--color-background)' }}>
+          <button 
+            type="button"
+            onClick={() => navigate('/pago')} 
+            style={{ background: 'none', border: 'none', position: 'absolute', left: '1rem', top: '2rem', cursor: 'pointer', color: 'var(--color-primary)' }}
+          >
+            <ChevronLeft size={28} />
+          </button>
+          <h2 style={{ color: 'var(--color-primary)', marginTop: '0.5rem' }}>Perfil Familiar</h2>
+          <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--color-gray-500)' }}>Historial Encontrado</p>
+        </div>
+
+        <div style={{ padding: '2rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', flex: 1 }}>
+          <div style={{
+            background: 'var(--color-background)',
+            border: '2px solid var(--color-secondary)',
+            borderRadius: '20px',
+            padding: '1.5rem',
+            textAlign: 'center',
+            boxShadow: '0 8px 30px rgba(0,0,0,0.05)'
+          }}>
+            <span style={{ fontSize: '3rem' }}>👋</span>
+            <h3 style={{ color: 'var(--color-primary)', margin: '1rem 0 0.5rem' }}>¡Hola de nuevo!</h3>
+            <p style={{ color: 'var(--color-gray-600)', fontSize: '0.95rem', lineHeight: '1.5' }}>
+              Hemos detectado que ya has completado la ficha de inscripción anteriormente.
+            </p>
+          </div>
+
+          <div style={{
+            border: '1px solid var(--color-gray-200)',
+            borderRadius: '16px',
+            padding: '1.2rem',
+            background: '#F9FAFB'
+          }}>
+            <p style={{ margin: 0, fontWeight: 'bold', color: 'var(--color-primary)', marginBottom: '0.8rem', fontSize: '0.95rem' }}>
+              Niños registrados en tu familia:
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {existingAlumnos.map((alum, idx) => (
+                <div key={alum.id} style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.75rem',
+                  padding: '0.75rem',
+                  background: 'white',
+                  borderRadius: '12px',
+                  border: '1px solid var(--color-gray-200)'
+                }}>
+                  <div style={{
+                    width: '32px', height: '32px', borderRadius: '50%', background: 'var(--color-tertiary)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-primary)', fontWeight: 'bold'
+                  }}>
+                    {idx + 1}
+                  </div>
+                  <div>
+                    <p style={{ margin: 0, fontWeight: 'bold', fontSize: '0.9rem', color: 'var(--color-primary)' }}>{alum.nombre}</p>
+                    <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--color-gray-500)' }}>DNI: {alum.dni} | Grado: {alum.grado}°</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div style={{
+            background: '#FFFBEB',
+            border: '1px solid #FCD34D',
+            padding: '1rem',
+            borderRadius: '12px',
+            fontSize: '0.85rem',
+            color: '#B45309',
+            lineHeight: '1.4'
+          }}>
+            👉 Si los datos de tus hijos y contactos siguen siendo los mismos, puedes omitir la carga manual y continuar directo a reservar los turnos del mes.
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: 'auto' }}>
+            <button 
+              type="button"
+              onClick={handleQuickConfirm}
+              disabled={isSubmitting}
+              className="btn btn-primary btn-block"
+              style={{ padding: '1rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem' }}
+            >
+              {isSubmitting ? 'Confirmando...' : 'Sí, los datos siguen siendo los mismos'}
+            </button>
+            
+            <button 
+              type="button"
+              onClick={() => setPrefillMode('none')}
+              className="btn btn-outline btn-block"
+              style={{ borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }}
+            >
+              No, quiero revisar o modificar las fichas
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (prefillMode === 'new_sibling') {
+    return (
+      <div className="auth-layout" style={{ background: 'var(--color-white)' }}>
+        <div className="auth-header" style={{ paddingBottom: '1rem', background: 'var(--color-background)' }}>
+          <button 
+            type="button"
+            onClick={() => navigate('/pago')} 
+            style={{ background: 'none', border: 'none', position: 'absolute', left: '1rem', top: '2rem', cursor: 'pointer', color: 'var(--color-primary)' }}
+          >
+            <ChevronLeft size={28} />
+          </button>
+          <h2 style={{ color: 'var(--color-primary)', marginTop: '0.5rem' }}>Perfil Familiar</h2>
+          <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--color-gray-500)' }}>Inscripción de Hermano</p>
+        </div>
+
+        <div style={{ padding: '2rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', flex: 1 }}>
+          <div style={{
+            background: 'var(--color-background)',
+            border: '2px solid var(--color-secondary)',
+            borderRadius: '20px',
+            padding: '1.5rem',
+            textAlign: 'center',
+            boxShadow: '0 8px 30px rgba(0,0,0,0.05)'
+          }}>
+            <span style={{ fontSize: '3rem' }}>👦👧</span>
+            <h3 style={{ color: 'var(--color-primary)', margin: '1rem 0 0.5rem' }}>¡Hola de nuevo!</h3>
+            <p style={{ color: 'var(--color-gray-600)', fontSize: '0.95rem', lineHeight: '1.5' }}>
+              Encontramos tu cuenta familiar. Tienes registrado/a a: <strong>{existingAlumnos.map(a => a.nombre).join(', ')}</strong>.
+            </p>
+          </div>
+
+          <div style={{
+            border: '1px solid var(--color-gray-200)',
+            borderRadius: '16px',
+            padding: '1.2rem',
+            background: '#F9FAFB'
+          }}>
+            <p style={{ margin: 0, fontWeight: 'bold', color: 'var(--color-primary)', marginBottom: '0.8rem', fontSize: '0.95rem' }}>
+              ¿Qué haremos ahora?
+            </p>
+            <ul style={{ margin: 0, paddingLeft: '1.2rem', fontSize: '0.9rem', color: 'var(--color-gray-600)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <li>Confirmaremos automáticamente la ficha de {existingAlumnos.map(a => a.nombre).join(' y ')}.</li>
+              <li>Pre-completaremos los datos familiares compartidos (contacto de emergencia, autorizados de retiro y obra social).</li>
+              <li>Solo tendrás que completar los datos específicos (personales, escuela y salud) del nuevo hermano/a.</li>
+            </ul>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: 'auto' }}>
+            <button 
+              type="button"
+              onClick={handleStartNewSibling}
+              className="btn btn-primary btn-block"
+              style={{ padding: '1rem' }}
+            >
+              Completar Ficha del Hermano/a
+            </button>
+            
+            <button 
+              type="button"
+              onClick={() => setPrefillMode('none')}
+              className="btn btn-outline btn-block"
+              style={{ borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }}
+            >
+              Quiero llenar todas las fichas desde cero
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (prefillMode === 'selector') {
+    return (
+      <div className="auth-layout" style={{ background: 'var(--color-white)' }}>
+        <div className="auth-header" style={{ paddingBottom: '1rem', background: 'var(--color-background)' }}>
+          <button 
+            type="button"
+            onClick={() => navigate('/pago')} 
+            style={{ background: 'none', border: 'none', position: 'absolute', left: '1rem', top: '2rem', cursor: 'pointer', color: 'var(--color-primary)' }}
+          >
+            <ChevronLeft size={28} />
+          </button>
+          <h2 style={{ color: 'var(--color-primary)', marginTop: '0.5rem' }}>Perfil Familiar</h2>
+          <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--color-gray-500)' }}>Selección de Alumnos</p>
+        </div>
+
+        <div style={{ padding: '2rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', flex: 1 }}>
+          <div style={{
+            background: 'var(--color-background)',
+            border: '2px solid var(--color-secondary)',
+            borderRadius: '20px',
+            padding: '1.5rem',
+            textAlign: 'center',
+            boxShadow: '0 8px 30px rgba(0,0,0,0.05)'
+          }}>
+            <span style={{ fontSize: '3rem' }}>🤔</span>
+            <h3 style={{ color: 'var(--color-primary)', margin: '1rem 0 0.5rem' }}>¿Quiénes asistirán?</h3>
+            <p style={{ color: 'var(--color-gray-600)', fontSize: '0.95rem', lineHeight: '1.5' }}>
+              Tienes <strong>{existingAlumnos.length} niños</strong> registrados, pero contrataste el servicio para <strong>{totalChildren} niño/s</strong> este mes.
+            </p>
+            <p style={{ color: 'var(--color-secondary)', fontWeight: 'bold', fontSize: '0.9rem', margin: '0.5rem 0 0' }}>
+              Selecciona exactamente {totalChildren} {totalChildren === 1 ? 'niño' : 'niños'}:
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            {existingAlumnos.map((alum) => {
+              const isChecked = selectedSiblingIds.includes(alum.id);
+              return (
+                <div 
+                  key={alum.id}
+                  onClick={() => handleSiblingCheckboxChange(alum.id)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '1rem',
+                    padding: '1rem',
+                    background: isChecked ? 'var(--color-background)' : 'white',
+                    borderRadius: '16px',
+                    border: `2px solid ${isChecked ? 'var(--color-secondary)' : 'var(--color-gray-200)'}`,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <input 
+                    type="checkbox"
+                    checked={isChecked}
+                    onChange={() => {}} 
+                    style={{ width: '20px', height: '20px', pointerEvents: 'none' }}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <p style={{ margin: 0, fontWeight: 'bold', fontSize: '0.95rem', color: 'var(--color-primary)' }}>{alum.nombre}</p>
+                    <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--color-gray-500)' }}>DNI: {alum.dni} | Grado: {alum.grado}°</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: 'auto' }}>
+            <button 
+              type="button"
+              onClick={handleConfirmSelectedSiblings}
+              disabled={selectedSiblingIds.length !== totalChildren || isSubmitting}
+              className="btn btn-primary btn-block"
+              style={{
+                padding: '1rem',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                gap: '0.5rem',
+                opacity: selectedSiblingIds.length !== totalChildren ? 0.5 : 1
+              }}
+            >
+              {isSubmitting ? 'Confirmando...' : `Confirmar y Continuar a Reservar`}
+            </button>
+            
+            <button 
+              type="button"
+              onClick={() => setPrefillMode('none')}
+              className="btn btn-outline btn-block"
+              style={{ borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }}
+            >
+              Registrar un niño nuevo en la familia
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="auth-layout" style={{ background: 'var(--color-white)' }}>

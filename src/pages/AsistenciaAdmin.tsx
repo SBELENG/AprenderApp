@@ -89,9 +89,13 @@ const AsistenciaAdmin: React.FC = () => {
           .select('*')
           .eq('fecha', selectedDate);
 
+        // Filtrar en memoria defensivamente por fecha seleccionada
+        const reservasDelDia = (reservasData || []).filter(r => r.fecha === selectedDate);
+        const asistenciaDelDia = (asistenciaData || []).filter(as => as.fecha === selectedDate);
+
         // Filtrar alumnos que tengan reserva para este día O que ya tengan registro de asistencia
-        const bookedNames = new Set(reservasData?.map(r => r.alumno_nombre.trim().toLowerCase()) || []);
-        const attendedIds = new Set(asistenciaData?.map(as => as.alumno_id) || []);
+        const bookedNames = new Set(reservasDelDia.map(r => r.alumno_nombre.trim().toLowerCase()));
+        const attendedIds = new Set(asistenciaDelDia.map(as => as.alumno_id));
 
         const filteredAlumnos = alumnosData.filter(a => 
           bookedNames.has(a.nombre.trim().toLowerCase()) || attendedIds.has(a.id)
@@ -117,8 +121,8 @@ const AsistenciaAdmin: React.FC = () => {
 
         // 3. Mapear datos
         const mappedAlumnos: Alumno[] = filteredAlumnos.map(a => {
-          const asistencia = asistenciaData?.find(as => as.alumno_id === a.id);
-          const reserva = reservasData?.find(r => r.alumno_nombre.trim().toLowerCase() === a.nombre.trim().toLowerCase());
+          const asistencia = asistenciaDelDia.find(as => as.alumno_id === a.id);
+          const reserva = reservasDelDia.find(r => r.alumno_nombre.trim().toLowerCase() === a.nombre.trim().toLowerCase());
           let estado: 'Pendiente' | 'Presente' | 'Retirado' = 'Pendiente';
           if (asistencia) {
             estado = asistencia.hora_retiro ? 'Retirado' : 'Presente';

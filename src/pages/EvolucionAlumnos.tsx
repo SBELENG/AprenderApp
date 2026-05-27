@@ -35,6 +35,19 @@ const formatDateAR = (dateStr: string) => {
   return dateStr;
 };
 
+const formatLastNameFirst = (fullName: string): string => {
+  if (!fullName) return '';
+  const trimmed = fullName.trim();
+  if (trimmed.includes(',')) {
+    return trimmed;
+  }
+  const parts = trimmed.split(/\s+/);
+  if (parts.length <= 1) return trimmed;
+  const lastName = parts[parts.length - 1];
+  const firstNames = parts.slice(0, parts.length - 1).join(' ');
+  return `${lastName}, ${firstNames}`;
+};
+
 const EvolucionAlumnos: React.FC = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
@@ -99,6 +112,12 @@ const EvolucionAlumnos: React.FC = () => {
             }))
         }));
 
+        mapped.sort((a, b) => {
+          const nameA = formatLastNameFirst(a.nombre);
+          const nameB = formatLastNameFirst(b.nombre);
+          return nameA.localeCompare(nameB, 'es', { sensitivity: 'base' });
+        });
+
         setAlumnos(mapped);
         setIsLoading(false);
         return; // Success, exit retry loop
@@ -119,9 +138,11 @@ const EvolucionAlumnos: React.FC = () => {
     }
   };
 
-  const filteredAlumnos = alumnos.filter(a => 
-    a.nombre.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredAlumnos = alumnos.filter(a => {
+    const formatted = formatLastNameFirst(a.nombre);
+    return a.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+           formatted.toLowerCase().includes(searchTerm.toLowerCase());
+  });
 
   return (
     <div className="auth-layout" style={{ background: 'var(--color-white)' }}>
@@ -206,7 +227,7 @@ const EvolucionAlumnos: React.FC = () => {
                       <User size={24} />
                     </div>
                     <div style={{ flex: 1 }}>
-                      <p style={{ margin: 0, fontWeight: 'bold', color: 'var(--color-primary)' }}>{alumno.nombre}</p>
+                      <p style={{ margin: 0, fontWeight: 'bold', color: 'var(--color-primary)' }}>{formatLastNameFirst(alumno.nombre)}</p>
                       <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--color-gray-500)' }}>{alumno.grado} - {alumno.escuela}</p>
                     </div>
                     <ChevronRight size={20} color="var(--color-gray-300)" />
