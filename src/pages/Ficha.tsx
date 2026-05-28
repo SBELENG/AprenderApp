@@ -837,7 +837,7 @@ const Ficha: React.FC = () => {
               </label>
               <input 
                 type="text" name="obraSocial" value={formData.obraSocial} onChange={handleInputChange} 
-                className="input-field" placeholder="Nombre y N° de Carnet" 
+                className="input-field" placeholder="Ej: OSDE, OSECAC, Particular (solo nombre)" 
               />
             </div>
           </div>
@@ -877,7 +877,7 @@ const Ficha: React.FC = () => {
             <div className="input-group">
               <label className="input-label">
                 <BookOpen size={14} style={{ display: 'inline', marginRight: '4px' }} />
-                Asignaturas Prioritarias
+                Asignaturas con Dificultad
               </label>
               <input type="text" name="asignaturas" value={formData.asignaturas} onChange={handleInputChange} className="input-field" placeholder="Ej: Matemática, Lengua..." required />
             </div>

@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, Phone, ShieldCheck } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
+import { auth } from '../lib/firebase';
 
 const Auth: React.FC = () => {
   const navigate = useNavigate();
@@ -8,27 +11,131 @@ const Auth: React.FC = () => {
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [confirmationResult, setConfirmationResult] = useState<any>(null);
 
-  const handleSendCode = (e: React.FormEvent) => {
+  const handleSendCode = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (phone.length !== 10) return;
     setIsLoading(true);
-    // Simular llamada a Firebase Auth
-    setTimeout(() => {
-      setIsLoading(false);
+
+    try {
+      // 1. Sanitizar el número de teléfono ingresado
+      let cleanPhone = phone.replace(/\D/g, ''); // Quedarse solo con números
+      
+      // Quitar prefijo de país si lo ingresaron
+      if (cleanPhone.startsWith('549')) {
+        cleanPhone = cleanPhone.substring(3);
+      } else if (cleanPhone.startsWith('54')) {
+        cleanPhone = cleanPhone.substring(2);
+      }
+      
+      // Quitar el 0 inicial si lo ingresaron (código de salida)
+      if (cleanPhone.startsWith('0')) {
+        cleanPhone = cleanPhone.substring(1);
+      }
+      
+      // Quitar el 15 si lo ingresaron (ej: prefijo 15 de celulares en Argentina)
+      if (cleanPhone.length === 12 && cleanPhone.substring(3, 5) === '15') {
+        cleanPhone = cleanPhone.substring(0, 3) + cleanPhone.substring(5);
+      } else if (cleanPhone.length === 11 && cleanPhone.substring(2, 4) === '15') {
+        cleanPhone = cleanPhone.substring(0, 2) + cleanPhone.substring(4);
+      }
+
+      // Validar longitud final (deben ser 10 dígitos: código de área + número local)
+      if (cleanPhone.length !== 10) {
+        throw new Error('El número debe tener 10 dígitos (ej: 3584858343). Por favor verifica si tiene el código de área sin el 0 y sin el 15.');
+      }
+
+      // 2. Limpiar reCAPTCHA previo si existe en el objeto global
+      if ((window as any).recaptchaVerifier) {
+        try {
+          (window as any).recaptchaVerifier.clear();
+        } catch (e) {
+          console.warn("Error al limpiar recaptcha previo:", e);
+        }
+      }
+
+      // 3. Inicializar reCAPTCHA de Firebase de forma invisible
+      (window as any).recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+        size: 'invisible',
+        callback: () => {
+          // reCAPTCHA resuelto automáticamente
+        }
+      });
+
+      const phoneFormatted = `+549${cleanPhone}`;
+      const appVerifier = (window as any).recaptchaVerifier;
+
+      // 4. Enviar SMS real mediante Google Firebase
+      const confirmation = await signInWithPhoneNumber(auth, phoneFormatted, appVerifier);
+      
+      setConfirmationResult(confirmation);
       setStep('otp');
-    }, 1500);
+    } catch (err: any) {
+      console.error('Error al enviar SMS OTP con Firebase:', err);
+      const currentDomain = window.location.hostname;
+      const cleanPhone = phone.replace(/\D/g, '');
+      const phoneFormatted = `+549${cleanPhone}`;
+      alert(`[DIAGNÓSTICO DE ERROR DE SMS]\n\n• Dominio desde el que entras: ${currentDomain}\n• Teléfono enviado: ${phoneFormatted}\n\n• Detalle del error: ${err.message || err.code || JSON.stringify(err)}\n\n(Usa este detalle para verificar si falta habilitar el dominio en Firebase, o si hay un error en las claves en Vercel)`);
+      if ((window as any).recaptchaVerifier) {
+        try { (window as any).recaptchaVerifier.clear(); } catch {}
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleVerifyOtp = (e: React.FormEvent) => {
+  const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (otp.length < 6) return;
+    if (otp.length < 6 || !confirmationResult) return;
     setIsLoading(true);
-    // Simular verificación OTP
-    setTimeout(() => {
+    
+    try {
+      // 1. Confirmar el código OTP ingresado mediante Firebase
+      const result = await confirmationResult.confirm(otp);
+      
+      if (!result.user) {
+        throw new Error('No se pudo verificar el usuario en Firebase.');
+      }
+
+      // 2. Una vez verificado el celular real, buscar si la familia ya existe en Supabase
+      const { data: families, error: famError } = await supabase
+        .from('familias')
+        .select('*')
+        .eq('telefono', phone);
+        
+      if (famError) throw famError;
+      
+      if (families && families.length > 0) {
+        const family = families[0];
+        
+        // Buscar si ya tiene alumnos (hijos) registrados
+        const { data: alumnos, error: alumsError } = await supabase
+          .from('alumnos')
+          .select('nombre')
+          .eq('familia_id', family.id);
+          
+        if (alumsError) throw alumsError;
+        
+        if (alumnos && alumnos.length > 0) {
+          // Ya tiene alumnos registrados. Iniciamos sesión y vamos directo a la agenda.
+          const nombres = alumnos.map(a => a.nombre);
+          alert(`¡Ingreso exitoso! Bienvenido de nuevo a la familia de: ${nombres.join(', ')}.`);
+          navigate('/agenda', { state: { telefono: phone, nombres, plan: 'mensual', childrenCount: nombres.length } });
+        } else {
+          // Familia existe pero sin niños, ir a la Ficha
+          alert('¡Ingreso exitoso! Por favor completa la ficha de tus hijos para agendar.');
+          navigate('/ficha', { state: { telefono: phone, plan: 'mensual', childrenCount: 1, total: 0 } });
+        }
+      } else {
+        // Nueva familia verificada, ir al flujo normal de elegir plan (contratar)
+        navigate('/contratar', { state: { telefono: phone } });
+      }
+    } catch (err: any) {
+      console.error('Error al verificar OTP con Firebase:', err);
+      alert('El código ingresado es incorrecto o ha vencido. Por favor verifica e intenta de nuevo.');
+    } finally {
       setIsLoading(false);
-      navigate('/contratar', { state: { telefono: phone } });
-    }, 1500);
+    }
   };
 
   return (
@@ -92,7 +199,7 @@ const Auth: React.FC = () => {
         ) : (
           <>
             <h2 className="auth-title">Verifica tu código</h2>
-            <p className="auth-subtitle">Hemos enviado un código SMS al número <b>{phone}</b></p>
+            <p className="auth-subtitle">Hemos enviado un código SMS de verificación real al número <b>{phone}</b></p>
 
             <form onSubmit={handleVerifyOtp}>
               <div className="input-group">
@@ -135,6 +242,7 @@ const Auth: React.FC = () => {
           </>
         )}
       </div>
+      <div id="recaptcha-container"></div>
     </div>
   );
 };

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ChevronLeft, CreditCard, Banknote, ShieldCheck } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 const Pago: React.FC = () => {
   const navigate = useNavigate();
@@ -34,17 +35,40 @@ const Pago: React.FC = () => {
         navigate('/ficha', { state: { ...state, metodo: 'Mercado Pago', codigo_efectivo: 'MP-' + refCode } });
       }, 2000);
     } else {
-      // Validar código de efectivo (8 caracteres)
+      // Validar código de efectivo (8 caracteres) en base de datos de Supabase
       if (code.length !== 8) {
         alert('El código debe tener 8 caracteres.');
         setIsProcessing(false);
         return;
       }
-      setTimeout(() => {
-        setIsProcessing(false);
-        alert('¡Código validado exitosamente! Pago registrado.');
-        navigate('/ficha', { state: { ...state, metodo: 'Efectivo', codigo_efectivo: code } });
-      }, 1500);
+      
+      const checkCashCode = async () => {
+        try {
+          const { data, error } = await supabase
+            .from('transacciones')
+            .select('*')
+            .eq('codigo_efectivo', code)
+            .eq('metodo', 'Efectivo');
+            
+          if (error) throw error;
+          
+          if (!data || data.length === 0) {
+            alert('El código ingresado no existe en nuestro sistema o no corresponde a un pago en efectivo válido. Por favor, solicita un código real a la administración para avanzar.');
+            setIsProcessing(false);
+            return;
+          }
+          
+          // Código válido
+          alert('¡Código validado exitosamente! Pago registrado.');
+          navigate('/ficha', { state: { ...state, metodo: 'Efectivo', codigo_efectivo: code } });
+        } catch (err: any) {
+          console.error('Error al validar código:', err);
+          alert('Error de conexión al validar el código: ' + err.message);
+          setIsProcessing(false);
+        }
+      };
+      
+      checkCashCode();
     }
   };
 
