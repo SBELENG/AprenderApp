@@ -146,8 +146,9 @@ const AgendaPadres: React.FC = () => {
   React.useEffect(() => {
     const fetchExistingReservas = async () => {
       try {
+        const lastDay = new Date(currentYear, currentMonth + 1, 0).getDate();
         const startDate = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`;
-        const endDate = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-31`;
+        const endDate = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
         
         // 1. Obtener todas las reservas de la academia para control de cupos
         const { data, error } = await supabase
