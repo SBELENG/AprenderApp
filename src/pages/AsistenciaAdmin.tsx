@@ -222,8 +222,6 @@ const AsistenciaAdmin: React.FC = () => {
         a.id === id ? { ...a, estado: 'Presente', horaIngreso: horaActual, maestraNombre: maestraName } : a
       ));
       
-      showPush(`Notificación en pantalla: ¡${alumno.nombre} ingresó a la academia a las ${horaActual}!`);
-      
       if (alumno.email) {
         emailjs.send(
           import.meta.env.VITE_EMAILJS_SERVICE_ID || 'service_id',
@@ -236,7 +234,16 @@ const AsistenciaAdmin: React.FC = () => {
             observaciones: ''
           },
           import.meta.env.VITE_EMAILJS_PUBLIC_KEY || 'public_key'
-        ).catch(e => console.error("Error enviando email:", e));
+        )
+        .then(() => {
+          showPush(`¡${alumno.nombre} ingresó! Correo enviado a ${alumno.email}`);
+        })
+        .catch(e => {
+          console.error("Error enviando email:", e);
+          showPush(`⚠️ Ingreso registrado, pero falló el envío de correo a ${alumno.email}`);
+        });
+      } else {
+        showPush(`¡${alumno.nombre} ingresó! (Sin correo registrado)`);
       }
 
       setActiveIngresoModalId(null);
@@ -308,8 +315,6 @@ const AsistenciaAdmin: React.FC = () => {
         a.id === activeModalId ? { ...a, estado: 'Retirado', horaRetiro: horaActual, observaciones: observacionTemp } : a
       ));
 
-      showPush(`Notificación en pantalla: ¡${alumno?.nombre} fue retirado a las ${horaActual}!`);
-
       if (alumno && alumno.email) {
         emailjs.send(
           import.meta.env.VITE_EMAILJS_SERVICE_ID || 'service_id',
@@ -322,7 +327,16 @@ const AsistenciaAdmin: React.FC = () => {
             observaciones: observacionTemp
           },
           import.meta.env.VITE_EMAILJS_PUBLIC_KEY || 'public_key'
-        ).catch(e => console.error("Error enviando email:", e));
+        )
+        .then(() => {
+          showPush(`¡${alumno.nombre} retirado! Correo enviado a ${alumno.email}`);
+        })
+        .catch(e => {
+          console.error("Error enviando email:", e);
+          showPush(`⚠️ Retiro registrado, pero falló el envío de correo a ${alumno.email}`);
+        });
+      } else {
+        showPush(`¡${alumno?.nombre} retirado! (Sin correo registrado)`);
       }
 
     } catch (error: any) {
