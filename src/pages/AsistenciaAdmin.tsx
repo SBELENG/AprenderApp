@@ -4,6 +4,7 @@ import { ChevronLeft, Bell, UserCheck, UserMinus, FileEdit, Check, BarChart3, Us
 import AdminAuthModal from '../components/AdminAuthModal';
 import HealthAlertModal from '../components/HealthAlertModal';
 import { supabase } from '../lib/supabase';
+import emailjs from '@emailjs/browser';
 
 type Alumno = {
   id: string;
@@ -20,6 +21,7 @@ type Alumno = {
   autorizados?: string;
   maestraNombre?: string;
   fotoUrl?: string;
+  email?: string;
 };
 
 type Maestra = {
@@ -67,7 +69,7 @@ const AsistenciaAdmin: React.FC = () => {
         // 1. Obtener todos los alumnos
         const { data: alumnosData, error: alumnosError } = await supabase
           .from('alumnos')
-          .select('id, nombre, grado, salud_info, dni, emergencia_contacto, autorizados_retiro')
+          .select('id, nombre, grado, salud_info, dni, emergencia_contacto, autorizados_retiro, familias(email)')
           .order('nombre');
 
         if (alumnosError) throw alumnosError;
@@ -142,7 +144,8 @@ const AsistenciaAdmin: React.FC = () => {
             emergencia: a.emergencia_contacto,
             autorizados: a.autorizados_retiro,
             maestraNombre: maestrasData?.find(m => m.id === asistencia?.maestra_id)?.nombre,
-            fotoUrl: fotosMap[a.id] || undefined
+            fotoUrl: fotosMap[a.id] || undefined,
+            email: a.familias?.email
           };
         });
 
@@ -219,7 +222,23 @@ const AsistenciaAdmin: React.FC = () => {
         a.id === id ? { ...a, estado: 'Presente', horaIngreso: horaActual, maestraNombre: maestraName } : a
       ));
       
-      showPush(`Notificación enviada a padres: "¡${alumno.nombre} ingresó a la academia a las ${horaActual}!"`);
+      showPush(`Notificación en pantalla: ¡${alumno.nombre} ingresó a la academia a las ${horaActual}!`);
+      
+      if (alumno.email) {
+        emailjs.send(
+          import.meta.env.VITE_EMAILJS_SERVICE_ID || 'service_id',
+          import.meta.env.VITE_EMAILJS_TEMPLATE_ID || 'template_id',
+          {
+            to_email: alumno.email,
+            nombre_alumno: alumno.nombre,
+            hora: horaActual,
+            estado: 'Ingresado/Presente',
+            observaciones: ''
+          },
+          import.meta.env.VITE_EMAILJS_PUBLIC_KEY || 'public_key'
+        ).catch(e => console.error("Error enviando email:", e));
+      }
+
       setActiveIngresoModalId(null);
     } catch (error: any) {
       alert('Error al registrar ingreso (Asegúrate de agregar la columna maestra_id en Supabase): ' + error.message);
@@ -289,7 +308,23 @@ const AsistenciaAdmin: React.FC = () => {
         a.id === activeModalId ? { ...a, estado: 'Retirado', horaRetiro: horaActual, observaciones: observacionTemp } : a
       ));
 
-      showPush(`Notificación enviada a padres: "¡${alumno?.nombre} fue retirado a las ${horaActual}! Observación: ${observacionTemp}"`);
+      showPush(`Notificación en pantalla: ¡${alumno?.nombre} fue retirado a las ${horaActual}!`);
+
+      if (alumno && alumno.email) {
+        emailjs.send(
+          import.meta.env.VITE_EMAILJS_SERVICE_ID || 'service_id',
+          import.meta.env.VITE_EMAILJS_TEMPLATE_ID || 'template_id',
+          {
+            to_email: alumno.email,
+            nombre_alumno: alumno.nombre,
+            hora: horaActual,
+            estado: 'Retirado',
+            observaciones: observacionTemp
+          },
+          import.meta.env.VITE_EMAILJS_PUBLIC_KEY || 'public_key'
+        ).catch(e => console.error("Error enviando email:", e));
+      }
+
     } catch (error: any) {
       alert('Error al registrar retiro: ' + error.message);
     } finally {

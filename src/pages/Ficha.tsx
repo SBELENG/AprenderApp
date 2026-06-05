@@ -30,7 +30,8 @@ const Ficha: React.FC = () => {
     emergencia: '',
     autorizados: '',
     desempeno: '',
-    asignaturas: ''
+    asignaturas: '',
+    email: ''
   });
 
   const [existingAlumnos, setExistingAlumnos] = useState<any[]>([]);
@@ -152,7 +153,8 @@ const Ficha: React.FC = () => {
       ...prev,
       emergencia: familyData?.emergencia_contacto || '',
       autorizados: familyData?.autorizados_retiro || '',
-      obraSocial: familyData?.obra_social || ''
+      obraSocial: familyData?.obra_social || '',
+      email: familyData?.email || ''
     }));
     setPrefillMode('none');
   };
@@ -248,7 +250,8 @@ const Ficha: React.FC = () => {
             telefono: paymentState.telefono,
             emergencia_contacto: formData.emergencia,
             autorizados_retiro: formData.autorizados,
-            obra_social: formData.obraSocial
+            obra_social: formData.obraSocial,
+            email: formData.email
           }], { onConflict: 'telefono' })
           .select();
           
@@ -348,7 +351,8 @@ const Ficha: React.FC = () => {
           maestra: '',
           salud: '',
           desempeno: '',
-          asignaturas: ''
+          asignaturas: '',
+          email: formData.email
         }));
         setPhotoPreview(null);
         setSinProblemasSalud(false);
@@ -816,6 +820,16 @@ const Ficha: React.FC = () => {
               <input 
                 type="text" name="emergencia" value={formData.emergencia} onChange={handleInputChange} 
                 className="input-field" placeholder="Nombre y Teléfono (ej: Abuela Marta - 3584112233)" required 
+              />
+            </div>
+
+            <div className="input-group">
+              <label className="input-label">
+                Correo Electrónico (Para Notificaciones)
+              </label>
+              <input 
+                type="email" name="email" value={formData.email} onChange={handleInputChange} 
+                className="input-field" placeholder="ejemplo@correo.com" required 
               />
             </div>
 
