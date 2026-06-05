@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ChevronLeft, Calendar as CalendarIcon, CheckCircle2, Download, Info, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, CheckCircle2, Download, Info, X } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { supabase } from '../lib/supabase';
@@ -21,6 +21,8 @@ const getLocalDateStringFromDate = (d: Date): string => {
   return `${yr}-${mn}-${dy}`;
 };
 
+const MONTH_NAMES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
 type Reservation = { date: Date, shiftId: string, shiftLabel: string };
 
 const DAYS_MAP = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
@@ -33,16 +35,16 @@ const AgendaPadres: React.FC = () => {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isConfirmed, setIsConfirmed] = useState(false);
-  const [cupoMaximo, setCupoMaximo] = useState(12);
+  const [cupoMaximo, setCupoMaximo] = useState(4);
   const [cuposDetallados, setCuposDetallados] = useState<Record<string, Record<string, number>> | null>(null);
   const [cuposEspecifcos, setCuposEspecifcos] = useState<Record<string, Record<string, number>> | null>(null);
   const [existingReservas, setExistingReservas] = useState<{ fecha: string, horario: string }[]>([]);
   const [feriadosList, setFeriadosList] = useState<string[]>(['2026-05-25', '2026-06-20']);
 
-  // Generar días del mes actual (simplificado para el mockup)
-  const today = new Date('2026-05-16T10:00:00'); // Usamos la fecha actual simulada
-  const currentMonth = today.getMonth();
-  const currentYear = today.getFullYear();
+  const [viewDate, setViewDate] = useState(new Date());
+  const today = new Date();
+  const currentMonth = viewDate.getMonth();
+  const currentYear = viewDate.getFullYear();
 
   React.useEffect(() => {
     const fetchConfig = async () => {
@@ -336,7 +338,9 @@ const AgendaPadres: React.FC = () => {
   };
 
   const isPastOrToday = (day: number) => {
-    return day <= today.getDate();
+    const d = new Date(currentYear, currentMonth, day);
+    const t = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    return d.getTime() <= t.getTime();
   };
 
   // Turnos disponibles según el día seleccionado (por hora exacta)
@@ -373,7 +377,23 @@ const AgendaPadres: React.FC = () => {
           <ChevronLeft size={28} />
         </button>
         <h2 style={{ color: 'var(--color-primary)', marginTop: '0.5rem' }}>Reserva de Turnos</h2>
-        <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--color-gray-500)' }}>Mayo 2026</p>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem', marginTop: '0.5rem' }}>
+          <button 
+            onClick={() => setViewDate(new Date(currentYear, currentMonth - 1, 1))}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-primary)' }}
+          >
+            <ChevronLeft size={20} />
+          </button>
+          <p style={{ margin: 0, fontSize: '1rem', fontWeight: 'bold', color: 'var(--color-primary)', minWidth: '120px', textAlign: 'center' }}>
+            {MONTH_NAMES[currentMonth]} {currentYear}
+          </p>
+          <button 
+            onClick={() => setViewDate(new Date(currentYear, currentMonth + 1, 1))}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-primary)' }}
+          >
+            <ChevronRight size={20} />
+          </button>
+        </div>
       </div>
 
       <div style={{ padding: '1.5rem', flex: 1, display: 'flex', flexDirection: 'column' }}>

@@ -20,8 +20,11 @@ const Contratar: React.FC = () => {
   const hasDiscount = childrenCount >= 2;
   const discountMultiplier = hasDiscount ? 0.9 : 1;
 
-  const getPrice = (basePrice: number, includeDuration = true) => {
-    return basePrice * childrenCount * (includeDuration ? durationCount : 1) * discountMultiplier;
+  const getPrice = (planId: string, basePrice: number, includeDuration = true) => {
+    if (selectedPlan === planId) {
+      return basePrice * childrenCount * (includeDuration ? durationCount : 1) * discountMultiplier;
+    }
+    return basePrice;
   };
 
   const handleNext = () => {
@@ -32,7 +35,7 @@ const Contratar: React.FC = () => {
           plan: selectedPlan, 
           childrenCount, 
           durationCount,
-          total: getPrice(plan.price),
+          total: getPrice(selectedPlan, plan.price),
           telefono
         } 
       });
@@ -109,13 +112,14 @@ const Contratar: React.FC = () => {
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <h4 style={{ margin: 0, color: 'var(--color-primary)', fontSize: '1.1rem' }}>
-                    ${(selectedPlan === plan.id ? getPrice(plan.price) : getPrice(plan.price, false)).toLocaleString()}
+                    ${(selectedPlan === plan.id ? getPrice(plan.id, plan.price) : getPrice(plan.id, plan.price, false)).toLocaleString()}
                   </h4>
-                  {hasDiscount && <span style={{ fontSize: '0.8rem', color: 'var(--color-secondary)', textDecoration: 'line-through' }}>
+                  {(hasDiscount && selectedPlan === plan.id) && <span style={{ fontSize: '0.8rem', color: 'var(--color-secondary)', textDecoration: 'line-through' }}>
                     ${(plan.price * childrenCount * (selectedPlan === plan.id ? durationCount : 1)).toLocaleString()}
                   </span>}
                 </div>
               </div>
+
             ))}
           </div>
         </div>
