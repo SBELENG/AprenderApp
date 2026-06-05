@@ -30,7 +30,16 @@ const DAYS_MAP = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes
 const AgendaPadres: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const paymentState = location.state as { plan: string, childrenCount: number, durationCount?: number, total: number, nombres?: string[] } | null;
+  
+  // Recuperar sesión para evitar perderla al recargar
+  const [sessionState] = useState<{ plan: string, childrenCount: number, durationCount?: number, total: number, nombres?: string[], telefono?: string } | null>(() => {
+    if (location.state) {
+      localStorage.setItem('parent_session', JSON.stringify(location.state));
+      return location.state as any;
+    }
+    const saved = localStorage.getItem('parent_session');
+    return saved ? JSON.parse(saved) : null;
+  });
   
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -39,7 +48,15 @@ const AgendaPadres: React.FC = () => {
   const [cuposDetallados, setCuposDetallados] = useState<Record<string, Record<string, number>> | null>(null);
   const [cuposEspecifcos, setCuposEspecifcos] = useState<Record<string, Record<string, number>> | null>(null);
   const [existingReservas, setExistingReservas] = useState<{ fecha: string, horario: string }[]>([]);
+  const [existingUserReservas, setExistingUserReservas] = useState<{ id?: string, fecha: string, horario: string, alumno_nombre: string }[]>([]);
   const [feriadosList, setFeriadosList] = useState<string[]>(['2026-05-25', '2026-06-20']);
+
+  // Estados para el correo de notificaciones
+  const [familyEmail, setFamilyEmail] = useState('');
+  const [isEditingEmail, setIsEditingEmail] = useState(false);
+  const [emailInput, setEmailInput] = useState('');
+  const [isSavingEmail, setIsSavingEmail] = useState(false);
+
 
   const [viewDate, setViewDate] = useState(new Date());
   const today = new Date();
@@ -105,10 +122,34 @@ const AgendaPadres: React.FC = () => {
   }, []);
 
   React.useEffect(() => {
+    const fetchFamilyEmail = async () => {
+      if (!sessionState?.telefono) return;
+      try {
+        const { data, error } = await supabase
+          .from('familias')
+          .select('email')
+          .eq('telefono', sessionState.telefono)
+          .single();
+          
+        if (error) throw error;
+        if (data) {
+          setFamilyEmail(data.email || '');
+          setEmailInput(data.email || '');
+        }
+      } catch (err) {
+        console.error("Error cargando correo de familia:", err);
+      }
+    };
+    fetchFamilyEmail();
+  }, [sessionState?.telefono]);
+
+  React.useEffect(() => {
     const fetchExistingReservas = async () => {
       try {
         const startDate = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`;
         const endDate = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-31`;
+        
+        // 1. Obtener todas las reservas de la academia para control de cupos
         const { data, error } = await supabase
           .from('reservas')
           .select('fecha, horario')
@@ -119,21 +160,64 @@ const AgendaPadres: React.FC = () => {
         if (data) {
           setExistingReservas(data);
         }
+
+        // 2. Obtener las reservas específicas de esta familia para el mes
+        if (sessionState?.nombres && sessionState.nombres.length > 0) {
+          const { data: userRes, error: userResError } = await supabase
+            .from('reservas')
+            .select('*')
+            .in('alumno_nombre', sessionState.nombres)
+            .gte('fecha', startDate)
+            .lte('fecha', endDate);
+            
+          if (userResError) throw userResError;
+          if (userRes) {
+            setExistingUserReservas(userRes);
+          }
+        }
       } catch (err) {
         console.error("Error cargando reservas existentes:", err);
       }
     };
     fetchExistingReservas();
-  }, [currentMonth, currentYear]);
+  }, [currentMonth, currentYear, sessionState?.nombres]);
 
-  // Calcular turnos permitidos basados en el pago (por defecto 1 si no hay state)
-  const allowedShifts = paymentState 
-    ? (paymentState.plan === 'hora' 
-        ? (paymentState.durationCount || 1) * (paymentState.childrenCount || 1)
-        : paymentState.plan === 'semana' 
-          ? 5 * (paymentState.durationCount || 1) * (paymentState.childrenCount || 1)
-          : 20 * (paymentState.durationCount || 1) * (paymentState.childrenCount || 1))
-    : 100; // Si entran sin pago, sin límite o límite alto
+  // Calcular turnos permitidos basados en el pago (por defecto 100 si no hay state)
+  const allowedShifts = sessionState 
+    ? (sessionState.plan === 'hora' 
+        ? (sessionState.durationCount || 1) * (sessionState.childrenCount || 1)
+        : sessionState.plan === 'semana' 
+          ? 5 * (sessionState.durationCount || 1) * (sessionState.childrenCount || 1)
+          : 20 * (sessionState.durationCount || 1) * (sessionState.childrenCount || 1))
+    : 100;
+
+  const alreadyBookedCount = existingUserReservas.length;
+  const remainingShifts = Math.max(0, allowedShifts - alreadyBookedCount);
+
+  const handleSaveEmail = async () => {
+    if (!sessionState?.telefono) return;
+    if (!emailInput.trim() || !emailInput.includes('@')) {
+      alert("Por favor ingresa un correo electrónico válido.");
+      return;
+    }
+    setIsSavingEmail(true);
+    try {
+      const { error } = await supabase
+        .from('familias')
+        .update({ email: emailInput.trim() })
+        .eq('telefono', sessionState.telefono);
+        
+      if (error) throw error;
+      setFamilyEmail(emailInput.trim());
+      setIsEditingEmail(false);
+      alert("Correo de notificaciones guardado correctamente.");
+    } catch (err: any) {
+      console.error("Error guardando correo:", err);
+      alert("Error al guardar el correo: " + err.message);
+    } finally {
+      setIsSavingEmail(false);
+    }
+  };
   
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
   const daysArray = Array.from({ length: daysInMonth }, (_, i) => i + 1);
@@ -183,14 +267,14 @@ const AgendaPadres: React.FC = () => {
     if (!selectedDate) return;
     
     // Check global limit
-    if (reservations.length >= allowedShifts) {
-      alert(`Tu plan actual te permite agendar hasta ${allowedShifts} turno(s) en total.`);
+    if (reservations.length >= remainingShifts) {
+      alert(`Tu plan actual te permite agendar hasta ${allowedShifts} turno(s) en total, y ya tienes ${alreadyBookedCount} reservado(s). Te quedan ${remainingShifts} por agendar.`);
       return;
     }
 
     // Check limit per shift (cannot exceed children count)
     const countInThisShift = reservations.filter(r => r.date.getTime() === selectedDate.getTime() && r.shiftId === shiftId).length;
-    const maxPerShift = paymentState?.childrenCount || 1;
+    const maxPerShift = sessionState?.childrenCount || 1;
     
     if (countInThisShift >= maxPerShift) {
       alert(`No puedes reservar más de ${maxPerShift} cupo(s) para este mismo horario (corresponde a la cantidad de niños inscriptos).`);
@@ -235,8 +319,8 @@ const AgendaPadres: React.FC = () => {
           shiftCounts[key] = nameIndex + 1;
           
           let assignedName = "Alumno";
-          if (paymentState?.nombres && paymentState.nombres.length > 0) {
-            assignedName = paymentState.nombres[Math.min(nameIndex, paymentState.nombres.length - 1)];
+          if (sessionState?.nombres && sessionState.nombres.length > 0) {
+            assignedName = sessionState.nombres[Math.min(nameIndex, sessionState.nombres.length - 1)];
           }
 
           // Convertir la fecha a formato local YYYY-MM-DD correcto
@@ -277,8 +361,8 @@ const AgendaPadres: React.FC = () => {
     doc.text(`Fecha de emisión: ${formatDateAR(new Date())}`, 14, 32);
     
     let tableStartY = 45;
-    if (paymentState && paymentState.nombres && paymentState.nombres.length > 0) {
-      doc.text(`Alumno/s: ${paymentState.nombres.join(', ')}`, 14, 40);
+    if (sessionState && sessionState.nombres && sessionState.nombres.length > 0) {
+      doc.text(`Alumno/s: ${sessionState.nombres.join(', ')}`, 14, 40);
       doc.text("Detalle de turnos agendados:", 14, 50);
       tableStartY = 55;
     } else {
@@ -296,8 +380,8 @@ const AgendaPadres: React.FC = () => {
       shiftCounts[key] = nameIndex + 1;
       
       let assignedName = "";
-      if (paymentState?.nombres && paymentState.nombres.length > 0) {
-        assignedName = paymentState.nombres[Math.min(nameIndex, paymentState.nombres.length - 1)];
+      if (sessionState?.nombres && sessionState.nombres.length > 0) {
+        assignedName = sessionState.nombres[Math.min(nameIndex, sessionState.nombres.length - 1)];
       }
 
       tableData.push([
@@ -321,6 +405,11 @@ const AgendaPadres: React.FC = () => {
   const hasReservation = (day: number) => {
     const d = new Date(currentYear, currentMonth, day).getTime();
     return reservations.some(r => r.date.getTime() === d);
+  };
+
+  const hasUserReservation = (day: number) => {
+    const dateString = getLocalDateStringFromDate(new Date(currentYear, currentMonth, day));
+    return existingUserReservas.some(r => r.fecha === dateString);
   };
 
   const isCurrentViewed = (day: number) => {
@@ -402,11 +491,104 @@ const AgendaPadres: React.FC = () => {
           <Info size={20} color="#1D4ED8" style={{ flexShrink: 0, marginTop: '2px' }} />
           <div>
             <p style={{ margin: 0, fontSize: '0.85rem', color: '#1E3A8A', fontWeight: 'bold' }}>
-              Tu plan: {paymentState ? (paymentState.plan === 'hora' ? 'Por Hora' : paymentState.plan === 'semana' ? 'Semanal' : 'Mensual') : 'Registrado'}
+              Tu plan: {sessionState ? (sessionState.plan === 'hora' ? 'Por Hora' : sessionState.plan === 'semana' ? 'Semanal' : 'Mensual') : 'Registrado'}
             </p>
             <p style={{ margin: 0, fontSize: '0.85rem', color: '#1E3A8A' }}>
-              Puedes agendar hasta <b>{allowedShifts} turno(s)</b>. Llevas {reservations.length} agendados.
+              Puedes agendar hasta <b>{allowedShifts} turno(s)</b>. Tienes <b>{alreadyBookedCount} reservado(s)</b> en este mes.
+              {remainingShifts > 0 ? ` Te quedan ${remainingShifts} por agendar.` : ' ¡Completaste tus cupos!'}
             </p>
+          </div>
+        </div>
+
+        {/* Notificaciones de correo */}
+        <div style={{ 
+          background: '#F0FDF4', 
+          padding: '1rem', 
+          borderRadius: '12px', 
+          marginBottom: '1.5rem', 
+          border: '1px solid #BBF7D0',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '0.5rem'
+        }}>
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+            <span style={{ fontSize: '1.25rem' }}>📧</span>
+            <div style={{ flex: 1 }}>
+              <p style={{ margin: 0, fontSize: '0.85rem', color: '#166534', fontWeight: 'bold' }}>
+                Notificaciones de Ingreso/Retiro por Correo
+              </p>
+              {isEditingEmail ? (
+                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                  <input 
+                    type="email" 
+                    value={emailInput} 
+                    onChange={(e) => setEmailInput(e.target.value)} 
+                    placeholder="ejemplo@correo.com"
+                    style={{ 
+                      flex: 1, 
+                      padding: '0.4rem 0.6rem', 
+                      borderRadius: '8px', 
+                      border: '1px solid #A7F3D0',
+                      fontSize: '0.85rem' 
+                    }}
+                  />
+                  <button 
+                    onClick={handleSaveEmail} 
+                    disabled={isSavingEmail}
+                    style={{ 
+                      background: '#166534', 
+                      color: 'white', 
+                      border: 'none', 
+                      padding: '0.4rem 0.8rem', 
+                      borderRadius: '8px', 
+                      fontSize: '0.8rem',
+                      fontWeight: 'bold',
+                      cursor: 'pointer' 
+                    }}
+                  >
+                    {isSavingEmail ? '...' : 'Guardar'}
+                  </button>
+                  <button 
+                    onClick={() => { setIsEditingEmail(false); setEmailInput(familyEmail); }}
+                    style={{ 
+                      background: 'none', 
+                      border: '1px solid #166534', 
+                      color: '#166534', 
+                      padding: '0.4rem 0.8rem', 
+                      borderRadius: '8px', 
+                      fontSize: '0.8rem',
+                      cursor: 'pointer' 
+                    }}
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              ) : (
+                <p style={{ margin: 0, fontSize: '0.85rem', color: '#166534', marginTop: '2px' }}>
+                  {familyEmail ? (
+                    <>
+                      Recibirás avisos en: <strong>{familyEmail}</strong>{' '}
+                      <button 
+                        onClick={() => setIsEditingEmail(true)} 
+                        style={{ background: 'none', border: 'none', color: '#15803d', textDecoration: 'underline', padding: 0, cursor: 'pointer', fontWeight: 'bold', marginLeft: '6px' }}
+                      >
+                        (Editar)
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <span style={{ color: '#991B1B', fontWeight: 'bold' }}>⚠️ No has registrado un correo para recibir avisos.</span>{' '}
+                      <button 
+                        onClick={() => setIsEditingEmail(true)} 
+                        style={{ background: 'none', border: 'none', color: '#166534', textDecoration: 'underline', padding: 0, cursor: 'pointer', fontWeight: 'bold' }}
+                      >
+                        (Registrar correo aquí)
+                      </button>
+                    </>
+                  )}
+                </p>
+              )}
+            </div>
           </div>
         </div>
 
@@ -432,6 +614,7 @@ const AgendaPadres: React.FC = () => {
           {daysArray.map(day => {
             const disabled = isDomingo(day) || isFeriado(day) || isPastOrToday(day);
             const reserved = hasReservation(day);
+            const userReserved = hasUserReservation(day);
             const viewed = isCurrentViewed(day);
             
             let bg = 'white';
@@ -446,6 +629,10 @@ const AgendaPadres: React.FC = () => {
               bg = 'var(--color-secondary)';
               color = 'white';
               border = '1px solid var(--color-secondary)';
+            } else if (userReserved) {
+              bg = '#D1FAE5'; // Soft green for already confirmed reservations
+              color = '#065F46';
+              border = '1px solid #10B981';
             } else if (viewed) {
               bg = '#E0F2FE';
               color = 'var(--color-primary)';
@@ -534,7 +721,7 @@ const AgendaPadres: React.FC = () => {
             padding: '1.5rem', animation: 'slideUp 0.3s ease-out'
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-              <h3 style={{ margin: 0, color: 'var(--color-primary)' }}>Turnos - {selectedDate.getDate()} de Mayo</h3>
+              <h3 style={{ margin: 0, color: 'var(--color-primary)' }}>Turnos - {selectedDate.getDate()} de {MONTH_NAMES[selectedDate.getMonth()]}</h3>
               <button onClick={() => setShowShiftModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
                 <X size={24} color="var(--color-gray-500)" />
               </button>
@@ -548,9 +735,37 @@ const AgendaPadres: React.FC = () => {
                 const capacity = getSlotCapacity(selectedDate, shift.id);
                 const dateString = getLocalDateStringFromDate(selectedDate);
                 const dbCount = existingReservas.filter(r => r.fecha === dateString && r.horario === shift.label).length;
+
+                // Verificar si ya tiene reservas confirmadas en la DB para este día/horario
+                const userAlreadyBooked = existingUserReservas.filter(r => r.fecha === dateString && r.horario === shift.label);
+                const isUserAlreadyBooked = userAlreadyBooked.length > 0;
+
                 const freeSlots = Math.max(0, capacity - dbCount - countSelected);
                 const isFull = freeSlots === 0 && !isSelected;
                 
+                if (isUserAlreadyBooked) {
+                  return (
+                    <div 
+                      key={shift.id}
+                      style={{ 
+                        border: '2px solid #86EFAC',
+                        borderRadius: '12px', padding: '1rem', 
+                        background: '#F0FDF4',
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      <div>
+                        <p style={{ margin: 0, fontWeight: 'bold', color: '#166534' }}>{shift.label}</p>
+                        <p style={{ margin: 0, fontSize: '0.85rem', color: '#15803d', fontWeight: 'bold' }}>
+                          ✓ Reservado para {userAlreadyBooked.map(u => u.alumno_nombre).join(', ')}
+                        </p>
+                      </div>
+                      <CheckCircle2 size={24} color="#10B981" />
+                    </div>
+                  );
+                }
+
                 return (
                   <div 
                     key={shift.id}
