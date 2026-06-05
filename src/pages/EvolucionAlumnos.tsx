@@ -11,6 +11,11 @@ type Nota = {
   etiqueta: 'Progreso' | 'Observación' | 'Novedad';
 };
 
+type ReservaFutura = {
+  fecha: string;
+  horario: string;
+};
+
 type Alumno = {
   id: string;
   nombre: string;
@@ -22,6 +27,7 @@ type Alumno = {
   autorizados: string;
   obraSocial?: string;
   historial: Nota[];
+  proximosTurnos: ReservaFutura[];
 };
 
 const formatDateAR = (dateStr: string) => {
@@ -91,6 +97,15 @@ const EvolucionAlumnos: React.FC = () => {
           .from('maestras')
           .select('id, nombre');
 
+        // Obtener próximas reservas
+        const d = new Date();
+        const todayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        const { data: reservasData } = await supabase
+          .from('reservas')
+          .select('fecha, horario, alumno_nombre')
+          .gte('fecha', todayStr)
+          .order('fecha', { ascending: true });
+
         const mapped: Alumno[] = alumnosData.map(a => ({
           id: a.id,
           nombre: a.nombre,
@@ -109,6 +124,12 @@ const EvolucionAlumnos: React.FC = () => {
               maestra: maestrasData?.find(m => m.id === as.maestra_id)?.nombre || 'Maestra',
               contenido: as.observaciones,
               etiqueta: 'Observación'
+            })),
+          proximosTurnos: (reservasData || [])
+            .filter(r => r.alumno_nombre.trim().toLowerCase() === a.nombre.trim().toLowerCase())
+            .map(r => ({
+              fecha: r.fecha,
+              horario: r.horario
             }))
         }));
 
@@ -278,6 +299,30 @@ const EvolucionAlumnos: React.FC = () => {
                 Autorizados: {selectedAlumno.autorizados}
               </div>
             </div>
+
+            <h4 style={{ color: 'var(--color-primary)', borderBottom: '1px solid var(--color-gray-200)', paddingBottom: '0.5rem', marginBottom: '1.5rem', marginTop: '2rem' }}>
+              Próximos Turnos Reservados
+            </h4>
+
+            {selectedAlumno.proximosTurnos.length === 0 ? (
+              <div style={{ background: '#F9FAFB', padding: '1rem', borderRadius: '12px', textAlign: 'center', color: 'var(--color-gray-500)', fontSize: '0.9rem', marginBottom: '2rem' }}>
+                El alumno no tiene turnos programados a futuro.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '2rem' }}>
+                {selectedAlumno.proximosTurnos.map((turno, idx) => (
+                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F0FDF4', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px solid #BBF7D0' }}>
+                    <span style={{ fontWeight: 'bold', color: '#166534', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <Calendar size={16} />
+                      {formatDateAR(turno.fecha)}
+                    </span>
+                    <span style={{ fontSize: '0.85rem', color: '#15803D', fontWeight: 'bold' }}>
+                      {turno.horario}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
 
             <h4 style={{ color: 'var(--color-primary)', borderBottom: '1px solid var(--color-gray-200)', paddingBottom: '0.5rem', marginBottom: '1.5rem' }}>
               Línea de Tiempo
