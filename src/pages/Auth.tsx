@@ -111,7 +111,7 @@ const Auth: React.FC = () => {
         // Buscar si ya tiene alumnos (hijos) registrados
         const { data: alumnos, error: alumsError } = await supabase
           .from('alumnos')
-          .select('nombre')
+          .select('id, nombre')
           .eq('familia_id', family.id);
           
         if (alumsError) throw alumsError;
