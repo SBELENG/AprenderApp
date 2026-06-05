@@ -54,6 +54,21 @@ const Auth: React.FC = () => {
         }
       }
 
+      // Bypass for testing phone number to prevent Firebase rate limits
+      if (cleanPhone === '3584196880') {
+        setConfirmationResult({
+          confirm: async (code: string) => {
+            if (code === '123456') {
+              return { user: { uid: 'test-user-bypass', phoneNumber: '+5493584196880' } };
+            }
+            throw new Error('Código incorrecto');
+          }
+        });
+        setStep('otp');
+        setIsLoading(false);
+        return;
+      }
+
       // 3. Inicializar reCAPTCHA de Firebase de forma invisible
       (window as any).recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
         size: 'invisible',
