@@ -135,9 +135,9 @@ const AgendaPadres: React.FC = () => {
           : 20 * (paymentState.durationCount || 1) * (paymentState.childrenCount || 1))
     : 100; // Si entran sin pago, sin límite o límite alto
   
-  // Días del mes (1 al 31 para mayo 2026)
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
   const daysArray = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+  const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay();
 
   const [showShiftModal, setShowShiftModal] = useState(false);
 
@@ -426,8 +426,8 @@ const AgendaPadres: React.FC = () => {
             <div key={d} style={{ textAlign: 'center', fontWeight: 'bold', color: 'var(--color-gray-500)', fontSize: '0.9rem' }}>{d}</div>
           ))}
           
-          {/* Espacios vacíos antes del 1 de mayo (Viernes = 5 espacios) */}
-          {Array.from({ length: 5 }).map((_, i) => <div key={`empty-${i}`} />)}
+          {/* Espacios vacíos antes del 1 del mes */}
+          {Array.from({ length: firstDayOfMonth }).map((_, i) => <div key={`empty-${i}`} />)}
           
           {daysArray.map(day => {
             const disabled = isDomingo(day) || isFeriado(day) || isPastOrToday(day);

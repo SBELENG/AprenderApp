@@ -119,8 +119,33 @@ const Auth: React.FC = () => {
         if (alumnos && alumnos.length > 0) {
           // Ya tiene alumnos registrados. Iniciamos sesión y vamos directo a la agenda.
           const nombres = alumnos.map(a => a.nombre);
+          
+          let inferredPlan = 'mensual';
+          let durationCount = 1;
+          
+          const { data: trans } = await supabase
+            .from('transacciones')
+            .select('monto')
+            .eq('alumno_id', alumnos[0].id)
+            .order('fecha', { ascending: false })
+            .limit(1);
+            
+          if (trans && trans.length > 0) {
+            const monto = trans[0].monto;
+            if (monto < 30000) {
+              inferredPlan = 'hora';
+              durationCount = Math.max(1, Math.round(monto / (alumnos.length >= 2 ? 6300 : 7000)));
+            } else if (monto < 100000) {
+              inferredPlan = 'semana';
+              durationCount = Math.max(1, Math.round(monto / (alumnos.length >= 2 ? 31500 : 35000)));
+            } else {
+              inferredPlan = 'mensual';
+              durationCount = Math.max(1, Math.round(monto / (alumnos.length >= 2 ? 117000 : 130000)));
+            }
+          }
+
           alert(`¡Ingreso exitoso! Bienvenido de nuevo a la familia de: ${nombres.join(', ')}.`);
-          navigate('/agenda', { state: { telefono: phone, nombres, plan: 'mensual', childrenCount: nombres.length } });
+          navigate('/agenda', { state: { telefono: phone, nombres, plan: inferredPlan, durationCount, childrenCount: nombres.length } });
         } else {
           // Familia existe pero sin niños (quizás se borraron en pruebas), debe comprar plan.
           navigate('/contratar', { state: { telefono: phone } });
