@@ -122,9 +122,8 @@ const Auth: React.FC = () => {
           alert(`¡Ingreso exitoso! Bienvenido de nuevo a la familia de: ${nombres.join(', ')}.`);
           navigate('/agenda', { state: { telefono: phone, nombres, plan: 'mensual', childrenCount: nombres.length } });
         } else {
-          // Familia existe pero sin niños, ir a la Ficha
-          alert('¡Ingreso exitoso! Por favor completa la ficha de tus hijos para agendar.');
-          navigate('/ficha', { state: { telefono: phone, plan: 'mensual', childrenCount: 1, total: 0 } });
+          // Familia existe pero sin niños (quizás se borraron en pruebas), debe comprar plan.
+          navigate('/contratar', { state: { telefono: phone } });
         }
       } else {
         // Nueva familia verificada, ir al flujo normal de elegir plan (contratar)
