@@ -241,6 +241,12 @@ const AgendaPadres: React.FC = () => {
       return;
     }
 
+    // Si ya no quedan turnos disponibles en el plan, redirigir a comprar más
+    if (remainingShifts <= 0) {
+      navigate('/contratar', { state: sessionState });
+      return;
+    }
+
     setSelectedDate(date);
     setShowShiftModal(true);
   };
@@ -488,18 +494,56 @@ const AgendaPadres: React.FC = () => {
 
       <div style={{ padding: '1.5rem', flex: 1, display: 'flex', flexDirection: 'column' }}>
         
-        <div style={{ background: '#EFF6FF', padding: '1rem', borderRadius: '12px', marginBottom: '1.5rem', display: 'flex', gap: '1rem', alignItems: 'flex-start', border: '1px solid #BFDBFE' }}>
-          <Info size={20} color="#1D4ED8" style={{ flexShrink: 0, marginTop: '2px' }} />
-          <div>
-            <p style={{ margin: 0, fontSize: '0.85rem', color: '#1E3A8A', fontWeight: 'bold' }}>
-              Tu plan: {sessionState ? (sessionState.plan === 'hora' ? 'Por Hora' : sessionState.plan === 'semana' ? 'Semanal' : 'Mensual') : 'Registrado'}
-            </p>
-            <p style={{ margin: 0, fontSize: '0.85rem', color: '#1E3A8A' }}>
-              Puedes agendar hasta <b>{allowedShifts} turno(s)</b>. Tienes <b>{alreadyBookedCount} reservado(s)</b> en este mes.
-              {remainingShifts > 0 ? ` Te quedan ${remainingShifts} por agendar.` : ' ¡Completaste tus cupos!'}
-            </p>
+        {/* Banner de plan: muestra info o CTA para comprar más */}
+        {remainingShifts > 0 ? (
+          <div style={{ background: '#EFF6FF', padding: '1rem', borderRadius: '12px', marginBottom: '1.5rem', display: 'flex', gap: '1rem', alignItems: 'flex-start', border: '1px solid #BFDBFE' }}>
+            <Info size={20} color="#1D4ED8" style={{ flexShrink: 0, marginTop: '2px' }} />
+            <div>
+              <p style={{ margin: 0, fontSize: '0.85rem', color: '#1E3A8A', fontWeight: 'bold' }}>
+                Tu plan: {sessionState ? (sessionState.plan === 'hora' ? 'Por Hora' : sessionState.plan === 'semana' ? 'Semanal' : 'Mensual') : 'Registrado'}
+              </p>
+              <p style={{ margin: 0, fontSize: '0.85rem', color: '#1E3A8A' }}>
+                Puedes agendar hasta <b>{allowedShifts} turno(s)</b>. Tienes <b>{alreadyBookedCount} reservado(s)</b> en este mes.
+                {` Te quedan ${remainingShifts} por agendar.`}
+              </p>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div style={{ background: '#FFF7ED', padding: '1.25rem', borderRadius: '16px', marginBottom: '1.5rem', border: '2px solid #FD8A00', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
+              <span style={{ fontSize: '1.5rem', flexShrink: 0 }}>⚠️</span>
+              <div>
+                <p style={{ margin: 0, fontSize: '0.95rem', color: '#92400E', fontWeight: 'bold' }}>
+                  ¡Usaste todos los turnos de tu plan!
+                </p>
+                <p style={{ margin: 0, fontSize: '0.85rem', color: '#78350F', marginTop: '4px' }}>
+                  Tienes <b>{alreadyBookedCount} turno(s)</b> reservados de los <b>{allowedShifts}</b> que contrataste.
+                  Para seguir agendando, comprá más horas.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => navigate('/contratar', { state: sessionState })}
+              style={{
+                background: 'linear-gradient(135deg, #F97316, #EA580C)',
+                color: 'white',
+                border: 'none',
+                padding: '0.85rem 1.5rem',
+                borderRadius: '12px',
+                fontWeight: 'bold',
+                fontSize: '1rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.5rem',
+                boxShadow: '0 4px 12px rgba(234,88,12,0.3)'
+              }}
+            >
+              🛒 Comprar más horas
+            </button>
+          </div>
+        )}
 
         {/* Notificaciones de correo */}
         <div style={{ 
