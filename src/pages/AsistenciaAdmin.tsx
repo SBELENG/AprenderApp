@@ -145,7 +145,7 @@ const AsistenciaAdmin: React.FC = () => {
             autorizados: a.autorizados_retiro,
             maestraNombre: maestrasData?.find(m => m.id === asistencia?.maestra_id)?.nombre,
             fotoUrl: fotosMap[a.id] || undefined,
-            email: a.familias?.email
+            email: (a as any).familias?.email || ((a as any).familias && Array.isArray((a as any).familias) ? (a as any).familias[0]?.email : undefined)
           };
         });
 
