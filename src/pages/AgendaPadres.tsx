@@ -236,14 +236,21 @@ const AgendaPadres: React.FC = () => {
 
   // Calcular turnos permitidos: primero desde DB (más confiable), luego desde sesión
   const sessionAllowedShifts = sessionState 
-    ? (sessionState.plan === 'hora' 
-        ? (sessionState.durationCount || 1) * (sessionState.childrenCount || 1)
-        : sessionState.plan === 'semana' 
-          ? 5 * (sessionState.durationCount || 1) * (sessionState.childrenCount || 1)
-          : 20 * (sessionState.durationCount || 1) * (sessionState.childrenCount || 1))
+    ? (() => {
+        const newShifts = sessionState.plan === 'hora' 
+          ? (sessionState.durationCount || 1) * (sessionState.childrenCount || 1)
+          : sessionState.plan === 'semana' 
+            ? 5 * (sessionState.durationCount || 1) * (sessionState.childrenCount || 1)
+            : 20 * (sessionState.durationCount || 1) * (sessionState.childrenCount || 1);
+        // Sumar turnos de pagos anteriores si existen
+        const prevShifts = (sessionState as any).previousAllowedShifts || 0;
+        return newShifts + prevShifts;
+      })()
     : 100;
-  // Usar DB si disponible; sino usar sesión; sino 100 (admin fallback)
-  const allowedShifts = dbAllowedShifts ?? sessionAllowedShifts;
+  // Usar DB si disponible y es mayor; sino usar sesión
+  const allowedShifts = dbAllowedShifts 
+    ? Math.max(dbAllowedShifts, sessionAllowedShifts)
+    : sessionAllowedShifts;
 
   const alreadyBookedCount = existingUserReservas.length;
   const remainingShifts = Math.max(0, allowedShifts - alreadyBookedCount);
@@ -294,9 +301,8 @@ const AgendaPadres: React.FC = () => {
       return;
     }
 
-    // Si ya no quedan turnos disponibles en el plan, redirigir a comprar más
+    // Si no quedan turnos, no abrir el modal (el banner ya explica que deben comprar más)
     if (remainingShifts <= 0) {
-      navigate('/contratar', { state: { telefono: sessionState?.telefono } });
       return;
     }
 
@@ -576,7 +582,7 @@ const AgendaPadres: React.FC = () => {
               </div>
             </div>
             <button
-              onClick={() => navigate('/contratar', { state: { telefono: sessionState?.telefono } })}
+              onClick={() => navigate('/contratar', { state: { telefono: sessionState?.telefono, previousAllowedShifts: allowedShifts } })}
               style={{
                 background: 'linear-gradient(135deg, #F97316, #EA580C)',
                 color: 'white',

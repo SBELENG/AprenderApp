@@ -6,6 +6,7 @@ const Contratar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const telefono = location.state?.telefono || '';
+  const previousAllowedShifts = location.state?.previousAllowedShifts || 0;
   const [childrenCount, setChildrenCount] = useState(1);
   const [selectedPlan, setSelectedPlan] = useState<'hora' | 'semana' | 'mes' | null>(null);
   const [durationCount, setDurationCount] = useState(1);
@@ -36,7 +37,8 @@ const Contratar: React.FC = () => {
           childrenCount, 
           durationCount,
           total: getPrice(selectedPlan, plan.price),
-          telefono
+          telefono,
+          previousAllowedShifts
         } 
       });
     }
