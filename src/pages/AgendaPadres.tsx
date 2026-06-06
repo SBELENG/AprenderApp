@@ -57,6 +57,9 @@ const AgendaPadres: React.FC = () => {
   const [emailInput, setEmailInput] = useState('');
   const [isSavingEmail, setIsSavingEmail] = useState(false);
 
+  // Turnos totales pagados según transacciones en DB
+  const [dbAllowedShifts, setDbAllowedShifts] = useState<number | null>(null);
+
 
   const [viewDate, setViewDate] = useState(new Date());
   const today = new Date();
@@ -183,14 +186,64 @@ const AgendaPadres: React.FC = () => {
     fetchExistingReservas();
   }, [currentMonth, currentYear, sessionState?.nombres]);
 
-  // Calcular turnos permitidos basados en el pago (por defecto 100 si no hay state)
-  const allowedShifts = sessionState 
+  // Calcular turnos pagados desde la DB de transacciones
+  React.useEffect(() => {
+    const fetchPaidShifts = async () => {
+      if (!sessionState?.nombres || sessionState.nombres.length === 0) return;
+      try {
+        // Obtener transacciones de los alumnos de esta familia
+        const { data: alumnosData } = await supabase
+          .from('alumnos')
+          .select('id, nombre')
+          .in('nombre', sessionState.nombres);
+
+        if (!alumnosData || alumnosData.length === 0) return;
+
+        const alumnoIds = alumnosData.map(a => a.id);
+        const { data: transData } = await supabase
+          .from('transacciones')
+          .select('monto, metodo')
+          .in('alumno_id', alumnoIds);
+
+        if (!transData || transData.length === 0) return;
+
+        // Calcular turnos totales en base a los montos pagados
+        // Plan hora = $7000, semana = $35000 (5 turnos), mes = $130000 (20 turnos)
+        let totalShifts = 0;
+        transData.forEach(t => {
+          const monto = Number(t.monto) || 0;
+          if (monto <= 0) return;
+          // Detectar tipo de plan por monto aproximado
+          if (monto % 130000 === 0 || (monto >= 117000 && monto % (130000 * 0.9) < 1000)) {
+            totalShifts += 20 * Math.round(monto / 117000);
+          } else if (monto % 35000 === 0 || (monto >= 31500 && monto % (35000 * 0.9) < 500)) {
+            totalShifts += 5 * Math.round(monto / 31500);
+          } else {
+            // Plan hora: $7000 por hora (o $6300 con descuento)
+            totalShifts += Math.max(1, Math.round(monto / 7000));
+          }
+        });
+
+        if (totalShifts > 0) {
+          setDbAllowedShifts(totalShifts);
+        }
+      } catch (err) {
+        console.warn('No se pudo calcular turnos desde DB:', err);
+      }
+    };
+    fetchPaidShifts();
+  }, [sessionState?.nombres]);
+
+  // Calcular turnos permitidos: primero desde DB (más confiable), luego desde sesión
+  const sessionAllowedShifts = sessionState 
     ? (sessionState.plan === 'hora' 
         ? (sessionState.durationCount || 1) * (sessionState.childrenCount || 1)
         : sessionState.plan === 'semana' 
           ? 5 * (sessionState.durationCount || 1) * (sessionState.childrenCount || 1)
           : 20 * (sessionState.durationCount || 1) * (sessionState.childrenCount || 1))
     : 100;
+  // Usar DB si disponible; sino usar sesión; sino 100 (admin fallback)
+  const allowedShifts = dbAllowedShifts ?? sessionAllowedShifts;
 
   const alreadyBookedCount = existingUserReservas.length;
   const remainingShifts = Math.max(0, allowedShifts - alreadyBookedCount);
@@ -243,7 +296,7 @@ const AgendaPadres: React.FC = () => {
 
     // Si ya no quedan turnos disponibles en el plan, redirigir a comprar más
     if (remainingShifts <= 0) {
-      navigate('/contratar', { state: sessionState });
+      navigate('/contratar', { state: { telefono: sessionState?.telefono } });
       return;
     }
 
@@ -523,7 +576,7 @@ const AgendaPadres: React.FC = () => {
               </div>
             </div>
             <button
-              onClick={() => navigate('/contratar', { state: sessionState })}
+              onClick={() => navigate('/contratar', { state: { telefono: sessionState?.telefono } })}
               style={{
                 background: 'linear-gradient(135deg, #F97316, #EA580C)',
                 color: 'white',
