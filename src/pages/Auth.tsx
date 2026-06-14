@@ -306,80 +306,45 @@ const Auth: React.FC = () => {
         {step === 'phone' ? (
           <>
             <h2 className="auth-title">Ingreso Familias</h2>
-            <p className="auth-subtitle">Ingresa tu número de celular para recibir un código de acceso seguro por SMS.</p>
+            <p className="auth-subtitle" style={{ marginBottom: '2rem' }}>
+              Ingresa de forma segura a la plataforma utilizando tu cuenta de Google.
+            </p>
 
-            <form onSubmit={handleSendCode}>
-              <div className="input-group">
-                <label className="input-label">Número de Celular</label>
-                <div style={{ position: 'relative' }}>
-                  <Phone size={20} color="var(--color-gray-500)" style={{ position: 'absolute', left: '12px', top: '14px' }} />
-                  <input 
-                    type="tel" 
-                    className="input-field" 
-                    placeholder="Ej: 3584858343" 
-                    style={{ paddingLeft: '40px' }}
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    maxLength={10}
-                    required
-                  />
-                </div>
-                <p style={{ fontSize: '0.8rem', color: 'var(--color-gray-500)', marginTop: '4px', margin: 0 }}>
-                  Ingresa tu número con código de área (10 dígitos, sin 0 ni 15).
-                </p>
-              </div>
+            <div style={{ marginTop: '1.5rem', marginBottom: '3rem' }}>
+              <button 
+                type="button" 
+                onClick={handleGoogleSignIn}
+                className="btn btn-block" 
+                style={{ 
+                  backgroundColor: 'white', 
+                  color: '#333', 
+                  border: '1px solid #ccc', 
+                  borderRadius: '8px',
+                  padding: '12px',
+                  fontSize: '16px',
+                  fontWeight: 600,
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  gap: '12px',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                }}
+                disabled={isLoading}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="22px" height="22px">
+                  <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/>
+                  <path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"/>
+                  <path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"/>
+                  <path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"/>
+                </svg>
+                Ingresar con Google
+              </button>
+            </div>
 
-              <div style={{ marginTop: '2rem' }}>
-                <button 
-                  type="submit" 
-                  className="btn btn-primary btn-block" 
-                  disabled={phone.length !== 10 || isLoading || codeSent}
-                >
-                  {isLoading
-                    ? 'Enviando código...'
-                    : codeSent
-                    ? `Código enviado — reenviar en ${countdown}s`
-                    : 'Recibir código por SMS'}
-                </button>
-              </div>
-
-              <div style={{ marginTop: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <div style={{ flex: 1, height: '1px', backgroundColor: 'var(--color-gray-200)' }}></div>
-                <span style={{ margin: '0 10px', color: 'var(--color-gray-500)', fontSize: '0.9rem' }}>o prueba con</span>
-                <div style={{ flex: 1, height: '1px', backgroundColor: 'var(--color-gray-200)' }}></div>
-              </div>
-
-              <div style={{ marginTop: '1.5rem' }}>
-                <button 
-                  type="button" 
-                  onClick={handleGoogleSignIn}
-                  className="btn btn-block" 
-                  style={{ 
-                    backgroundColor: 'white', 
-                    color: '#333', 
-                    border: '1px solid #ccc', 
-                    borderRadius: '8px',
-                    padding: '12px',
-                    fontSize: '16px',
-                    fontWeight: 600,
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center',
-                    gap: '12px',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
-                  }}
-                  disabled={isLoading}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="22px" height="22px">
-                    <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/>
-                    <path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"/>
-                    <path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"/>
-                    <path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"/>
-                  </svg>
-                  Ingresar con Google
-                </button>
-              </div>
-            </form>
+            <p style={{ fontSize: '0.85rem', color: 'var(--color-gray-500)', textAlign: 'center', lineHeight: '1.4' }}>
+              Debido a problemas de las operadoras telefónicas en Argentina, 
+              hemos desactivado temporalmente el acceso por SMS para tu comodidad.
+            </p>
           </>
         ) : step === 'otp' ? (
           <>
