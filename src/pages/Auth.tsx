@@ -187,31 +187,75 @@ const Auth: React.FC = () => {
         if (alumsError) throw alumsError;
         
         if (alumnos && alumnos.length > 0) {
-          // Ya tiene alumnos registrados. Iniciamos sesión y vamos directo a la agenda.
+          // Ya tiene alumnos registrados. Calculamos turnos pagados vs. reservas para saber si puede agendar.
           const nombres = alumnos.map(a => a.nombre);
-          
+          const alumnoIds = alumnos.map(a => a.id);
+
+          // 1. Obtener TODAS las transacciones de todos los alumnos de esta familia
+          const { data: allTrans } = await supabase
+            .from('transacciones')
+            .select('monto, metodo')
+            .in('alumno_id', alumnoIds);
+
+          // 2. Calcular total de turnos pagados
+          let totalPaidShifts = 0;
+          if (allTrans && allTrans.length > 0) {
+            allTrans.forEach(t => {
+              const monto = Number(t.monto) || 0;
+              if (monto <= 0) return;
+              if (monto % 130000 === 0 || (monto >= 117000 && monto % (130000 * 0.9) < 1000)) {
+                totalPaidShifts += 20 * Math.round(monto / 117000);
+              } else if (monto % 35000 === 0 || (monto >= 31500 && monto % (35000 * 0.9) < 500)) {
+                totalPaidShifts += 5 * Math.round(monto / 31500);
+              } else {
+                totalPaidShifts += Math.max(1, Math.round(monto / 7000));
+              }
+            });
+          }
+
+          // 3. Contar reservas actuales (mes en curso y futuros)
+          const today = new Date();
+          const startDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
+          const { data: reservasData } = await supabase
+            .from('reservas')
+            .select('id')
+            .in('alumno_nombre', nombres)
+            .gte('fecha', startDate);
+
+          const reservasCount = reservasData?.length || 0;
+          const remainingShifts = Math.max(0, totalPaidShifts - reservasCount);
+
+          // 4. Inferir el plan para mostrar en la sesión (basado en la última transacción)
           let inferredPlan = 'mensual';
           let durationCount = 1;
-          
-          const { data: trans } = await supabase
-            .from('transacciones')
-            .select('monto')
-            .eq('alumno_id', alumnos[0].id)
-            .order('fecha', { ascending: false })
-            .limit(1);
-            
-          if (trans && trans.length > 0) {
-            const monto = trans[0].monto;
-            if (monto < 30000) {
-              inferredPlan = 'hora';
-              durationCount = Math.max(1, Math.round(monto / (alumnos.length >= 2 ? 6300 : 7000)));
-            } else if (monto < 100000) {
-              inferredPlan = 'semana';
-              durationCount = Math.max(1, Math.round(monto / (alumnos.length >= 2 ? 31500 : 35000)));
-            } else {
-              inferredPlan = 'mensual';
-              durationCount = Math.max(1, Math.round(monto / (alumnos.length >= 2 ? 117000 : 130000)));
+          if (allTrans && allTrans.length > 0) {
+            // Usar la última transacción registrada para inferir el plan
+            const { data: lastTrans } = await supabase
+              .from('transacciones')
+              .select('monto')
+              .in('alumno_id', alumnoIds)
+              .order('fecha', { ascending: false })
+              .limit(1);
+            if (lastTrans && lastTrans.length > 0) {
+              const monto = lastTrans[0].monto;
+              if (monto < 30000) {
+                inferredPlan = 'hora';
+                durationCount = Math.max(1, Math.round(monto / (alumnos.length >= 2 ? 6300 : 7000)));
+              } else if (monto < 100000) {
+                inferredPlan = 'semana';
+                durationCount = Math.max(1, Math.round(monto / (alumnos.length >= 2 ? 31500 : 35000)));
+              } else {
+                inferredPlan = 'mensual';
+                durationCount = Math.max(1, Math.round(monto / (alumnos.length >= 2 ? 117000 : 130000)));
+              }
             }
+          }
+
+          // 5. Si no tiene turnos disponibles, mandarlo a contratar (debe pagar)
+          if (totalPaidShifts === 0 || remainingShifts <= 0) {
+            alert(`¡Bienvenido de nuevo, ${nombres.join(' y ')}! Tus turnos anteriores ya fueron utilizados. Por favor, adquiere un nuevo plan para seguir agendando.`);
+            navigate('/contratar', { state: { telefono: loginPhone, previousAllowedShifts: totalPaidShifts } });
+            return;
           }
 
           alert(`¡Ingreso exitoso! Bienvenido de nuevo a la familia de: ${nombres.join(', ')}.`);

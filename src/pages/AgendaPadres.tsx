@@ -285,6 +285,7 @@ const AgendaPadres: React.FC = () => {
   const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay();
 
   const [showShiftModal, setShowShiftModal] = useState(false);
+  const [shiftFeedback, setShiftFeedback] = useState<string | null>(null);
 
   const handleDayClick = (day: number) => {
     const date = new Date(currentYear, currentMonth, day);
@@ -358,6 +359,12 @@ const AgendaPadres: React.FC = () => {
     }
 
     setReservations([...reservations, { date: selectedDate, shiftId, shiftLabel }]);
+    // Mostrar feedback visual y cerrar el modal automáticamente
+    setShiftFeedback(shiftId);
+    setTimeout(() => {
+      setShiftFeedback(null);
+      setShowShiftModal(false);
+    }, 800);
   };
 
   const handleRemoveShift = (shiftId: string) => {
@@ -877,10 +884,10 @@ const AgendaPadres: React.FC = () => {
                       if (countSelected === 0 && !isFull) handleAddShift(shift.id, shift.label);
                     }}
                     style={{ 
-                      border: `2px solid ${isSelected ? 'var(--color-secondary)' : isFull ? 'var(--color-gray-200)' : 'var(--color-gray-300)'}`,
+                      border: `2px solid ${shiftFeedback === shift.id ? '#10B981' : isSelected ? 'var(--color-secondary)' : isFull ? 'var(--color-gray-200)' : 'var(--color-gray-300)'}`,
                       borderRadius: '12px', padding: '1rem', 
                       cursor: isFull ? 'not-allowed' : countSelected === 0 ? 'pointer' : 'default',
-                      background: isSelected ? 'var(--color-background)' : isFull ? '#F8FAFC' : 'white',
+                      background: shiftFeedback === shift.id ? '#F0FDF4' : isSelected ? 'var(--color-background)' : isFull ? '#F8FAFC' : 'white',
                       display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                       opacity: isFull ? 0.7 : 1,
                       transition: 'all 0.2s'
@@ -897,7 +904,9 @@ const AgendaPadres: React.FC = () => {
                       )}
                     </div>
                     
-                    {isSelected ? (
+                    {shiftFeedback === shift.id ? (
+                      <CheckCircle2 size={28} color="#10B981" style={{ animation: 'fadeIn 0.2s' }} />
+                    ) : isSelected ? (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', background: 'white', padding: '0.25rem', borderRadius: '8px', border: '1px solid var(--color-gray-300)' }}>
                         <button 
                           onClick={(e) => { e.stopPropagation(); handleRemoveShift(shift.id); }}
