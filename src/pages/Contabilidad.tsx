@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, Download, CreditCard, Banknote, BarChart, Loader2, Plus, X } from 'lucide-react';
+import { ChevronLeft, Download, CreditCard, Banknote, BarChart, Loader2, Plus, X, ArrowDownCircle, Trash2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { supabase } from '../lib/supabase';
 
@@ -28,8 +28,9 @@ type Transaccion = {
   fecha: string;
   alumno: string;
   monto: number;
-  metodo: 'Efectivo' | 'Mercado Pago';
+  metodo: 'Efectivo' | 'Mercado Pago' | 'Retiro de Caja';
   codigo_efectivo?: string;
+  descripcion?: string;
 };
 
 type Alumno = {
@@ -43,14 +44,22 @@ const Contabilidad: React.FC = () => {
   const [alumnos, setAlumnos] = useState<Alumno[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [generadorCodigo, setGeneradorCodigo] = useState('');
-  const [filtroMetodo, setFiltroMetodo] = useState<'Todos' | 'Efectivo' | 'Mercado Pago'>('Todos');
-  
+  const [filtroMetodo, setFiltroMetodo] = useState<'Todos' | 'Efectivo' | 'Mercado Pago' | 'Retiro de Caja'>('Todos');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
   // State for new payment modal
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newPago, setNewPago] = useState({
     alumno_id: '',
     monto: 7000,
     metodo: 'Efectivo' as 'Efectivo' | 'Mercado Pago'
+  });
+
+  // State for retiro de caja modal
+  const [isRetiroModalOpen, setIsRetiroModalOpen] = useState(false);
+  const [newRetiro, setNewRetiro] = useState({
+    monto: 0,
+    descripcion: ''
   });
 
   useEffect(() => {
@@ -74,10 +83,13 @@ const Contabilidad: React.FC = () => {
       const mapped: Transaccion[] = (pagosData || []).map(p => ({
         id: p.id,
         fecha: p.fecha,
-        alumno: p.alumnos?.nombre ? p.alumnos.nombre : (p.alumno_id ? 'Alumno eliminado' : 'Inscripción Pendiente'),
+        alumno: p.metodo === 'Retiro de Caja'
+          ? (p.descripcion || 'Retiro de Caja')
+          : (p.alumnos?.nombre ? p.alumnos.nombre : (p.alumno_id ? 'Alumno eliminado' : 'Inscripción Pendiente')),
         monto: p.monto,
         metodo: p.metodo,
-        codigo_efectivo: p.codigo_efectivo
+        codigo_efectivo: p.codigo_efectivo,
+        descripcion: p.descripcion
       }));
 
       setTransacciones(mapped);
@@ -135,12 +147,53 @@ const Contabilidad: React.FC = () => {
     }
   };
 
-  const filteredData = transacciones.filter(t => 
+  const handleAddRetiro = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newRetiro.monto || newRetiro.monto <= 0) {
+      alert('Ingresá un monto válido');
+      return;
+    }
+    try {
+      const { error } = await supabase
+        .from('transacciones')
+        .insert([{
+          alumno_id: null,
+          monto: newRetiro.monto,
+          metodo: 'Retiro de Caja',
+          fecha: getLocalDateString(),
+          descripcion: newRetiro.descripcion || 'Retiro de Caja'
+        }]);
+      if (error) throw error;
+      setIsRetiroModalOpen(false);
+      setNewRetiro({ monto: 0, descripcion: '' });
+      fetchData();
+    } catch (error: any) {
+      alert('Error al registrar retiro: ' + error.message);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('¿Eliminar esta transacción?')) return;
+    setDeletingId(id);
+    try {
+      const { error } = await supabase.from('transacciones').delete().eq('id', id);
+      if (error) throw error;
+      setTransacciones(prev => prev.filter(t => t.id !== id));
+    } catch (error: any) {
+      alert('Error al eliminar: ' + error.message);
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const filteredData = transacciones.filter(t =>
     filtroMetodo === 'Todos' || t.metodo === filtroMetodo
   );
 
   const totalMP = transacciones.filter(t => t.metodo === 'Mercado Pago').reduce((acc, t) => acc + t.monto, 0);
-  const totalEfectivo = transacciones.filter(t => t.metodo === 'Efectivo').reduce((acc, t) => acc + t.monto, 0);
+  const ingresosEfectivo = transacciones.filter(t => t.metodo === 'Efectivo').reduce((acc, t) => acc + t.monto, 0);
+  const totalRetiros = transacciones.filter(t => t.metodo === 'Retiro de Caja').reduce((acc, t) => acc + t.monto, 0);
+  const saldoEfectivo = ingresosEfectivo - totalRetiros;
 
   const exportToExcel = () => {
     const worksheet = XLSX.utils.json_to_sheet(transacciones);
@@ -190,30 +243,48 @@ const Contabilidad: React.FC = () => {
           <div style={{ background: '#DCFCE7', padding: '1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', color: '#15803D' }}>
               <Banknote size={20} />
-              <span style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>EFECTIVO</span>
+              <span style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>CAJA</span>
             </div>
-            <span style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#15803D' }}>
-              ${isLoading ? '...' : totalEfectivo.toLocaleString()}
+            <span style={{ fontSize: '1.2rem', fontWeight: 'bold', color: saldoEfectivo < 0 ? '#DC2626' : '#15803D' }}>
+              ${isLoading ? '...' : saldoEfectivo.toLocaleString()}
             </span>
+            {totalRetiros > 0 && !isLoading && (
+              <span style={{ fontSize: '0.7rem', color: '#6B7280' }}>
+                Ing. ${ingresosEfectivo.toLocaleString()} — Ret. ${totalRetiros.toLocaleString()}
+              </span>
+            )}
           </div>
         </div>
 
         {/* Acciones */}
-        <button 
-          onClick={() => setIsModalOpen(true)}
-          className="btn-primary"
-          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '1rem' }}
-        >
-          <Plus size={20} />
-          Registrar Nuevo Pago
-        </button>
+        <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="btn-primary"
+            style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.9rem' }}
+          >
+            <Plus size={18} />
+            Registrar Pago
+          </button>
+          <button
+            onClick={() => setIsRetiroModalOpen(true)}
+            style={{
+              flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
+              padding: '0.9rem', borderRadius: '12px', border: '2px solid #DC2626',
+              background: 'white', color: '#DC2626', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.9rem'
+            }}
+          >
+            <ArrowDownCircle size={18} />
+            Retiro de Caja
+          </button>
+        </div>
 
         {/* Listado con Filtros */}
         <div style={{ flex: 1 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
             <h4 style={{ margin: 0, color: 'var(--color-primary)' }}>Transacciones</h4>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <select 
+              <select
                 value={filtroMetodo}
                 onChange={(e) => setFiltroMetodo(e.target.value as any)}
                 style={{ fontSize: '0.8rem', padding: '0.2rem 0.5rem', borderRadius: '8px', border: '1px solid var(--color-gray-300)' }}
@@ -221,6 +292,7 @@ const Contabilidad: React.FC = () => {
                 <option value="Todos">Todos</option>
                 <option value="Efectivo">Efectivo</option>
                 <option value="Mercado Pago">Mercado Pago</option>
+                <option value="Retiro de Caja">Retiros</option>
               </select>
               <button 
                 onClick={exportToExcel}
@@ -244,22 +316,45 @@ const Contabilidad: React.FC = () => {
             </div>
           ) : (
             <div className="flex-col gap-3">
-              {filteredData.map(t => (
-                <div key={t.id} style={{ 
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
-                  padding: '1rem', background: '#F9FAFB', borderRadius: '12px', border: '1px solid #F3F4F6'
-                }}>
-                  <div>
-                    <p style={{ margin: 0, fontWeight: 'bold', fontSize: '0.9rem', color: 'var(--color-primary)' }}>{t.alumno}</p>
-                    <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--color-gray-500)' }}>
-                      {formatDateStringAR(t.fecha)} • {t.metodo} {t.codigo_efectivo && `(${t.codigo_efectivo})`}
-                    </p>
+              {filteredData.map(t => {
+                const esRetiro = t.metodo === 'Retiro de Caja';
+                return (
+                  <div key={t.id} style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    padding: '1rem', borderRadius: '12px', border: '1px solid',
+                    background: esRetiro ? '#FEF2F2' : '#F9FAFB',
+                    borderColor: esRetiro ? '#FECACA' : '#F3F4F6'
+                  }}>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ margin: 0, fontWeight: 'bold', fontSize: '0.9rem', color: esRetiro ? '#DC2626' : 'var(--color-primary)' }}>
+                        {esRetiro ? '↓ ' : ''}{t.alumno}
+                      </p>
+                      <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--color-gray-500)' }}>
+                        {formatDateStringAR(t.fecha)} • {t.metodo} {t.codigo_efectivo && `(${t.codigo_efectivo})`}
+                      </p>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                      <span style={{ fontWeight: 'bold', color: esRetiro ? '#DC2626' : (t.metodo === 'Efectivo' ? '#15803D' : '#0369A1') }}>
+                        {esRetiro ? '-' : '+'}${t.monto.toLocaleString()}
+                      </span>
+                      <button
+                        onClick={() => handleDelete(t.id)}
+                        disabled={deletingId === t.id}
+                        style={{
+                          background: 'none', border: 'none', cursor: 'pointer',
+                          color: '#9CA3AF', padding: '0.25rem', borderRadius: '6px',
+                          opacity: deletingId === t.id ? 0.4 : 1
+                        }}
+                        title="Eliminar"
+                      >
+                        {deletingId === t.id
+                          ? <Loader2 size={14} className="animate-spin" />
+                          : <Trash2 size={14} />}
+                      </button>
+                    </div>
                   </div>
-                  <span style={{ fontWeight: 'bold', color: t.metodo === 'Efectivo' ? '#15803D' : '#0369A1' }}>
-                    +${t.monto.toLocaleString()}
-                  </span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -376,6 +471,72 @@ const Contabilidad: React.FC = () => {
                 style={{ marginTop: '0.5rem', padding: '1rem' }}
               >
                 Confirmar Registro
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Retiro de Caja */}
+      {isRetiroModalOpen && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.5)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          backdropFilter: 'blur(4px)'
+        }}>
+          <div style={{
+            background: 'white', padding: '2rem', borderRadius: '24px', width: '90%', maxWidth: '400px',
+            position: 'relative', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)'
+          }}>
+            <button
+              onClick={() => setIsRetiroModalOpen(false)}
+              style={{ position: 'absolute', top: '1.25rem', right: '1.25rem', background: 'none', border: 'none', color: 'var(--color-gray-400)' }}
+            >
+              <X size={24} />
+            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
+              <div style={{ background: '#FEE2E2', padding: '0.6rem', borderRadius: '12px' }}>
+                <ArrowDownCircle size={24} color="#DC2626" />
+              </div>
+              <h3 style={{ margin: 0, color: '#DC2626' }}>Retiro de Caja</h3>
+            </div>
+            <form onSubmit={handleAddRetiro} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              <div className="input-group">
+                <label className="input-label">Monto a retirar ($)</label>
+                <input
+                  type="number"
+                  className="input-field"
+                  placeholder="0"
+                  value={newRetiro.monto || ''}
+                  onChange={(e) => setNewRetiro({...newRetiro, monto: Number(e.target.value)})}
+                  required
+                  min={1}
+                />
+              </div>
+              <div className="input-group">
+                <label className="input-label">Descripción (opcional)</label>
+                <input
+                  type="text"
+                  className="input-field"
+                  placeholder="Ej: Pago de servicios, compra de materiales..."
+                  value={newRetiro.descripcion}
+                  onChange={(e) => setNewRetiro({...newRetiro, descripcion: e.target.value})}
+                />
+              </div>
+              <div style={{ background: '#FEF2F2', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px solid #FECACA' }}>
+                <p style={{ margin: 0, fontSize: '0.8rem', color: '#DC2626' }}>
+                  ⚠️ Este retiro descontará del saldo de caja y quedará registrado en el historial.
+                </p>
+              </div>
+              <button
+                type="submit"
+                style={{
+                  marginTop: '0.5rem', padding: '1rem', borderRadius: '12px',
+                  background: '#DC2626', color: 'white', border: 'none',
+                  fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer'
+                }}
+              >
+                Confirmar Retiro
               </button>
             </form>
           </div>
