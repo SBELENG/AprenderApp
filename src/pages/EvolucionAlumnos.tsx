@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, Search, User, Calendar, ChevronRight, Loader2 } from 'lucide-react';
+import { ChevronLeft, Search, User, Calendar, ChevronRight, Loader2, Printer } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 type Nota = {
   id: string;
@@ -159,6 +161,64 @@ const EvolucionAlumnos: React.FC = () => {
     }
   };
 
+  const handleGeneratePDF = () => {
+    if (!selectedAlumno) return;
+
+    const doc = new jsPDF();
+    
+    doc.setFontSize(20);
+    doc.setTextColor(30, 58, 95);
+    doc.text("Evolución del Alumno", 14, 22);
+    
+    doc.setFontSize(14);
+    doc.setTextColor(50);
+    doc.text(`Alumno: ${selectedAlumno.nombre}`, 14, 32);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(80);
+    doc.text(`Grado: ${selectedAlumno.grado || '-'} | Escuela: ${selectedAlumno.escuela || '-'}`, 14, 38);
+    doc.text(`DNI: ${selectedAlumno.dni || '-'} | F. Nacimiento: ${formatDateAR(selectedAlumno.nacimiento) || '-'}`, 14, 43);
+    doc.text(`Contacto Emergencia: ${selectedAlumno.emergencia || '-'}`, 14, 48);
+    
+    let currentY = 48;
+    if (selectedAlumno.obraSocial) {
+      currentY += 5;
+      doc.text(`Obra Social: ${selectedAlumno.obraSocial}`, 14, currentY);
+    }
+    
+    const authText = doc.splitTextToSize(`Autorizados a retirar: ${selectedAlumno.autorizados || '-'}`, 180);
+    currentY += 5;
+    doc.text(authText, 14, currentY);
+    
+    currentY += (authText.length * 5) + 5;
+
+    doc.setFontSize(14);
+    doc.setTextColor(30, 58, 95);
+    doc.text("Historial de Evoluciones:", 14, currentY);
+    
+    const tableData = selectedAlumno.historial.map(nota => [
+      formatDateAR(nota.fecha),
+      nota.maestra,
+      nota.contenido
+    ]);
+
+    autoTable(doc, {
+      startY: currentY + 5,
+      head: [['Fecha', 'Maestra', 'Observación']],
+      body: tableData,
+      theme: 'grid',
+      headStyles: { fillColor: [30, 58, 95] },
+      styles: { fontSize: 10, cellPadding: 3 },
+      columnStyles: {
+        0: { cellWidth: 25 },
+        1: { cellWidth: 35 },
+        2: { cellWidth: 'auto' }
+      }
+    });
+
+    doc.save(`Evolucion_${selectedAlumno.nombre.replace(/\s+/g, '_')}.pdf`);
+  };
+
   const filteredAlumnos = alumnos.filter(a => {
     const formatted = formatLastNameFirst(a.nombre);
     return a.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -259,13 +319,23 @@ const EvolucionAlumnos: React.FC = () => {
           </>
         ) : (
           <div style={{ animation: 'fadeIn 0.3s' }}>
-            <button 
-              onClick={() => { setSelectedAlumno(null); setSelectedAlumnoFoto(null); }}
-              style={{ background: 'none', border: 'none', color: 'var(--color-secondary)', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.25rem', marginBottom: '1.5rem', cursor: 'pointer' }}
-            >
-              <ChevronLeft size={20} />
-              Volver al listado
-            </button>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <button 
+                onClick={() => { setSelectedAlumno(null); setSelectedAlumnoFoto(null); }}
+                style={{ background: 'none', border: 'none', color: 'var(--color-secondary)', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer' }}
+              >
+                <ChevronLeft size={20} />
+                Volver al listado
+              </button>
+              
+              <button
+                onClick={handleGeneratePDF}
+                style={{ background: 'var(--color-primary)', border: 'none', color: 'white', padding: '0.5rem 1rem', borderRadius: '8px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
+              >
+                <Printer size={18} />
+                Imprimir PDF
+              </button>
+            </div>
 
             <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
               <div style={{ 
