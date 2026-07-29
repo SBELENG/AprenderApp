@@ -116,7 +116,7 @@ const AgendaAdmin: React.FC = () => {
     doc.text(`Informe de Asistencia - ${formatDateStringAR(selectedDate)}`, 14, 32);
 
     // Tabla
-    const tableColumn = ["Alumno", "Horario", "Grado", "Maestra", "Salud", "Dificultad"];
+    const tableColumn = ["Alumno", "Horario", "Grado", "Docente", "Salud", "Dificultad"];
     const tableRows = asistencia.map(record => [
       record.nombre,
       record.turno,

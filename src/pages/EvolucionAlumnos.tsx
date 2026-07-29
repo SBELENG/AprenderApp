@@ -129,7 +129,7 @@ const EvolucionAlumnos: React.FC = () => {
             .map(as => ({
               id: as.id,
               fecha: as.fecha,
-              maestra: maestrasData?.find(m => m.id === as.maestra_id)?.nombre || 'Maestra',
+              maestra: maestrasData?.find(m => m.id === as.maestra_id)?.nombre || 'Docente',
               contenido: as.observaciones,
               etiqueta: 'Observación'
             })),
@@ -183,7 +183,7 @@ const EvolucionAlumnos: React.FC = () => {
     doc.setFontSize(10);
     doc.setTextColor(80);
     doc.text(`Grado: ${selectedAlumno.grado || '-'} | Escuela: ${selectedAlumno.escuela || '-'}`, 14, 38);
-    doc.text(`Señorita (Maestra): ${selectedAlumno.maestraGrado || '-'}`, 14, 43);
+    doc.text(`Docente: ${selectedAlumno.maestraGrado || '-'}`, 14, 43);
     doc.text(`DNI: ${selectedAlumno.dni || '-'} | F. Nacimiento: ${formatDateAR(selectedAlumno.nacimiento) || '-'}`, 14, 48);
     doc.text(`Contacto Emergencia: ${selectedAlumno.emergencia || '-'}`, 14, 53);
     
@@ -228,7 +228,7 @@ const EvolucionAlumnos: React.FC = () => {
 
     autoTable(doc, {
       startY: currentY + 5,
-      head: [['Fecha', 'Maestra', 'Observación']],
+      head: [['Fecha', 'Docente', 'Observación']],
       body: tableData,
       theme: 'grid',
       headStyles: { fillColor: [30, 58, 95] },

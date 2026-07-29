@@ -797,7 +797,7 @@ const Ficha: React.FC = () => {
                 <input type="text" name="escuela" value={formData.escuela} onChange={handleInputChange} className="input-field" placeholder="Nombre de la escuela" required />
               </div>
               <div className="input-group" style={{ flex: 1 }}>
-                <label className="input-label">Maestra del Grado</label>
+                <label className="input-label">Docente</label>
                 <input type="text" name="maestra" value={formData.maestra} onChange={handleInputChange} className="input-field" placeholder="Nombre" required />
               </div>
             </div>
