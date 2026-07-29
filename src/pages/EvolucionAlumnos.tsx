@@ -28,6 +28,9 @@ type Alumno = {
   emergencia: string;
   autorizados: string;
   obraSocial?: string;
+  maestraGrado?: string;
+  saludInfo?: string;
+  desempeno?: string;
   historial: Nota[];
   proximosTurnos: ReservaFutura[];
 };
@@ -80,7 +83,7 @@ const EvolucionAlumnos: React.FC = () => {
       try {
         const { data: alumnosData, error: alumnosError } = await supabase
           .from('alumnos')
-          .select('id, nombre, grado, escuela, dni, fecha_nacimiento, emergencia_contacto, autorizados_retiro, obra_social')
+          .select('id, nombre, grado, escuela, dni, fecha_nacimiento, emergencia_contacto, autorizados_retiro, obra_social, maestra_grado, salud_info, desempeno')
           .order('nombre');
 
         if (alumnosError) throw alumnosError;
@@ -118,6 +121,9 @@ const EvolucionAlumnos: React.FC = () => {
           emergencia: a.emergencia_contacto || '',
           autorizados: a.autorizados_retiro || '',
           obraSocial: a.obra_social,
+          maestraGrado: a.maestra_grado || '',
+          saludInfo: a.salud_info || '',
+          desempeno: a.desempeno || '',
           historial: (asistenciaData || [])
             .filter(as => as.alumno_id === a.id)
             .map(as => ({
@@ -177,17 +183,35 @@ const EvolucionAlumnos: React.FC = () => {
     doc.setFontSize(10);
     doc.setTextColor(80);
     doc.text(`Grado: ${selectedAlumno.grado || '-'} | Escuela: ${selectedAlumno.escuela || '-'}`, 14, 38);
-    doc.text(`DNI: ${selectedAlumno.dni || '-'} | F. Nacimiento: ${formatDateAR(selectedAlumno.nacimiento) || '-'}`, 14, 43);
-    doc.text(`Contacto Emergencia: ${selectedAlumno.emergencia || '-'}`, 14, 48);
+    doc.text(`Señorita (Maestra): ${selectedAlumno.maestraGrado || '-'}`, 14, 43);
+    doc.text(`DNI: ${selectedAlumno.dni || '-'} | F. Nacimiento: ${formatDateAR(selectedAlumno.nacimiento) || '-'}`, 14, 48);
+    doc.text(`Contacto Emergencia: ${selectedAlumno.emergencia || '-'}`, 14, 53);
     
-    let currentY = 48;
+    let currentY = 53;
     if (selectedAlumno.obraSocial) {
       currentY += 5;
       doc.text(`Obra Social: ${selectedAlumno.obraSocial}`, 14, currentY);
     }
     
-    const authText = doc.splitTextToSize(`Autorizados a retirar: ${selectedAlumno.autorizados || '-'}`, 180);
+    currentY += 7;
+    doc.setFontSize(11);
+    doc.setTextColor(30, 58, 95);
+    doc.text("Información Adicional:", 14, currentY);
+    doc.setFontSize(10);
+    doc.setTextColor(80);
+    
+    const saludText = doc.splitTextToSize(`Salud/Alergias: ${selectedAlumno.saludInfo || '-'}`, 180);
     currentY += 5;
+    doc.text(saludText, 14, currentY);
+    currentY += (saludText.length * 5);
+    
+    const desempenoText = doc.splitTextToSize(`Desempeño/Dificultades: ${selectedAlumno.desempeno || '-'}`, 180);
+    currentY += 2;
+    doc.text(desempenoText, 14, currentY);
+    currentY += (desempenoText.length * 5);
+
+    const authText = doc.splitTextToSize(`Autorizados a retirar: ${selectedAlumno.autorizados || '-'}`, 180);
+    currentY += 2;
     doc.text(authText, 14, currentY);
     
     currentY += (authText.length * 5) + 5;
