@@ -254,9 +254,9 @@ const AsistenciaAdmin: React.FC = () => {
     }
   };
 
-  const openRetiroModal = (id: string) => {
+  const openRetiroModal = (id: string, existingObs: string = '') => {
     setActiveModalId(id);
-    setObservacionTemp('');
+    setObservacionTemp(existingObs);
   };
 
   const handleConfirmarRetiro = async () => {
@@ -513,12 +513,22 @@ const AsistenciaAdmin: React.FC = () => {
                     )}
                   </div>
                 </div>
-                <span style={{ 
-                  display: 'inline-block', padding: '0.3rem 0.6rem', borderRadius: '100px', fontSize: '0.75rem', fontWeight: 'bold',
-                  background: alumno.estado === 'Presente' ? '#D1FAE5' : alumno.estado === 'Retirado' ? '#E5E7EB' : '#FEF3C7',
-                  color: alumno.estado === 'Presente' ? '#065F46' : alumno.estado === 'Retirado' ? '#374151' : '#92400E',
-                }}>
+                <span 
+                  onClick={() => {
+                    if (alumno.estado === 'Retirado' || alumno.estado === 'Presente') {
+                      openRetiroModal(alumno.id, alumno.observaciones || '');
+                    }
+                  }}
+                  style={{ 
+                    display: 'inline-block', padding: '0.3rem 0.6rem', borderRadius: '100px', fontSize: '0.75rem', fontWeight: 'bold',
+                    background: alumno.estado === 'Presente' ? '#D1FAE5' : alumno.estado === 'Retirado' ? '#E5E7EB' : '#FEF3C7',
+                    color: alumno.estado === 'Presente' ? '#065F46' : alumno.estado === 'Retirado' ? '#374151' : '#92400E',
+                    cursor: (alumno.estado === 'Retirado' || alumno.estado === 'Presente') ? 'pointer' : 'default',
+                  }}
+                  title={(alumno.estado === 'Retirado' || alumno.estado === 'Presente') ? "Clic para editar devolución" : ""}
+                >
                   {alumno.estado}
+                  {alumno.estado === 'Retirado' && ' ✏️'}
                 </span>
               </div>
 
@@ -546,11 +556,18 @@ const AsistenciaAdmin: React.FC = () => {
               )}
 
               {alumno.estado === 'Retirado' && (
-                <div style={{ background: '#F3F4F6', padding: '0.8rem', borderRadius: '8px', marginTop: '0.5rem' }}>
-                  <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--color-gray-500)' }}>
-                    <b>Retiro:</b> {alumno.horaRetiro}hs <br/>
-                    <b>Obs:</b> {alumno.observaciones}
-                  </p>
+                <div 
+                  style={{ background: '#F3F4F6', padding: '0.8rem', borderRadius: '8px', marginTop: '0.5rem', cursor: 'pointer', position: 'relative' }}
+                  onClick={() => openRetiroModal(alumno.id, alumno.observaciones || '')}
+                  title="Clic para editar la observación"
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--color-gray-500)', flex: 1 }}>
+                      <b>Retiro:</b> {alumno.horaRetiro}hs <br/>
+                      <b>Obs:</b> {alumno.observaciones}
+                    </p>
+                    <FileEdit size={16} color="var(--color-gray-400)" style={{ marginLeft: '0.5rem' }} />
+                  </div>
                 </div>
               )}
             </div>
