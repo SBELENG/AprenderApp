@@ -49,6 +49,7 @@ const AgendaPadres: React.FC = () => {
   const [cuposEspecifcos, setCuposEspecifcos] = useState<Record<string, Record<string, number>> | null>(null);
   const [existingReservas, setExistingReservas] = useState<{ fecha: string, horario: string }[]>([]);
   const [existingUserReservas, setExistingUserReservas] = useState<{ id?: string, fecha: string, horario: string, alumno_nombre: string }[]>([]);
+  const [totalHistoricalUserReservas, setTotalHistoricalUserReservas] = useState<number>(0);
   const [feriadosList, setFeriadosList] = useState<string[]>(['2026-05-25', '2026-06-20']);
 
   // Estados para el correo de notificaciones
@@ -178,6 +179,16 @@ const AgendaPadres: React.FC = () => {
           if (userRes) {
             setExistingUserReservas(userRes);
           }
+
+          // 3. Obtener TODAS las reservas históricas para calcular el saldo real
+          const { data: allUserRes, error: allUserResError } = await supabase
+            .from('reservas')
+            .select('id')
+            .in('alumno_nombre', sessionState.nombres);
+            
+          if (!allUserResError && allUserRes) {
+            setTotalHistoricalUserReservas(allUserRes.length);
+          }
         }
       } catch (err) {
         console.error("Error cargando reservas existentes:", err);
@@ -253,7 +264,8 @@ const AgendaPadres: React.FC = () => {
     : sessionAllowedShifts;
 
   const alreadyBookedCount = existingUserReservas.length;
-  const remainingShifts = Math.max(0, allowedShifts - alreadyBookedCount);
+  const historicalBookedCount = totalHistoricalUserReservas;
+  const remainingShifts = Math.max(0, allowedShifts - historicalBookedCount);
 
   const handleSaveEmail = async () => {
     if (!sessionState?.telefono) return;

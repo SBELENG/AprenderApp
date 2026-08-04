@@ -213,14 +213,11 @@ const Auth: React.FC = () => {
             });
           }
 
-          // 3. Contar reservas actuales (mes en curso y futuros)
-          const today = new Date();
-          const startDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
+          // 3. Contar TODAS las reservas históricas para restarlas del total pagado
           const { data: reservasData } = await supabase
             .from('reservas')
             .select('id')
-            .in('alumno_nombre', nombres)
-            .gte('fecha', startDate);
+            .in('alumno_nombre', nombres);
 
           const reservasCount = reservasData?.length || 0;
           const remainingShifts = Math.max(0, totalPaidShifts - reservasCount);
