@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, Download, Loader2 } from 'lucide-react';
+import { ChevronLeft, Download, Loader2, Plus, X } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import emailjs from '@emailjs/browser';
@@ -47,9 +47,53 @@ const AgendaAdmin: React.FC = () => {
   const [activeModalId, setActiveModalId] = useState<string | null>(null);
   const [observacionTemp, setObservacionTemp] = useState('');
 
+  // Estado para reserva manual
+  const [isManualModalOpen, setIsManualModalOpen] = useState(false);
+  const [manualRes, setManualRes] = useState({ alumno_nombre: '', horario: '09:00 hs' });
+  const [isSavingManual, setIsSavingManual] = useState(false);
+
+  const TURNOS = [
+    '09:00 hs', '10:00 hs', '11:00 hs',
+    '14:00 hs', '15:00 hs', '16:00 hs', '17:00 hs'
+  ];
+
+  const [allAlumnos, setAllAlumnos] = useState<{ id: string; nombre: string }[]>([]);
+
   useEffect(() => {
     fetchAsistencia();
   }, [selectedDate]);
+
+  useEffect(() => {
+    const loadAlumnos = async () => {
+      const { data } = await supabase.from('alumnos').select('id, nombre').order('nombre');
+      if (data) setAllAlumnos(data);
+    };
+    loadAlumnos();
+  }, []);
+
+  const handleAddManualReserva = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!manualRes.alumno_nombre.trim()) {
+      alert('Seleccioná un alumno');
+      return;
+    }
+    setIsSavingManual(true);
+    try {
+      const { error } = await supabase.from('reservas').insert([{
+        alumno_nombre: manualRes.alumno_nombre,
+        fecha: selectedDate,
+        horario: manualRes.horario
+      }]);
+      if (error) throw error;
+      setIsManualModalOpen(false);
+      setManualRes({ alumno_nombre: '', horario: '09:00 hs' });
+      fetchAsistencia();
+    } catch (err: any) {
+      alert('Error al guardar reserva: ' + err.message);
+    } finally {
+      setIsSavingManual(false);
+    }
+  };
 
   const fetchAsistencia = async () => {
     setIsLoading(true);
@@ -243,19 +287,35 @@ const AgendaAdmin: React.FC = () => {
           <h3 style={{ fontSize: '1.1rem', color: 'var(--color-primary)', margin: 0 }}>
             Listado del Día ({asistencia.length})
           </h3>
-          <button 
-            onClick={handleExportPDF}
-            disabled={asistencia.length === 0 || isLoading}
-            className="btn"
-            style={{ 
-              background: 'var(--color-secondary)', color: 'white', 
-              padding: '0.5rem 1rem', fontSize: '0.85rem', display: 'flex', gap: '0.5rem',
-              opacity: (asistencia.length === 0 || isLoading) ? 0.5 : 1
-            }}
-          >
-            <Download size={16} />
-            PDF
-          </button>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button
+              onClick={() => {
+                setManualRes({ alumno_nombre: '', horario: '09:00 hs' });
+                setIsManualModalOpen(true);
+              }}
+              className="btn"
+              style={{
+                background: 'var(--color-primary)', color: 'white',
+                padding: '0.5rem 1rem', fontSize: '0.85rem', display: 'flex', gap: '0.5rem', alignItems: 'center'
+              }}
+            >
+              <Plus size={16} />
+              Reserva manual
+            </button>
+            <button 
+              onClick={handleExportPDF}
+              disabled={asistencia.length === 0 || isLoading}
+              className="btn"
+              style={{ 
+                background: 'var(--color-secondary)', color: 'white', 
+                padding: '0.5rem 1rem', fontSize: '0.85rem', display: 'flex', gap: '0.5rem',
+                opacity: (asistencia.length === 0 || isLoading) ? 0.5 : 1
+              }}
+            >
+              <Download size={16} />
+              PDF
+            </button>
+          </div>
         </div>
 
         {/* Lista de Alumnos */}
@@ -351,6 +411,69 @@ const AgendaAdmin: React.FC = () => {
                 Guardar
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Reserva Manual (Admin) */}
+      {isManualModalOpen && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.55)', zIndex: 200,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          backdropFilter: 'blur(4px)'
+        }}>
+          <div style={{
+            background: 'white', padding: '2rem', borderRadius: '24px',
+            width: '90%', maxWidth: '400px', position: 'relative',
+            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)'
+          }}>
+            <button
+              onClick={() => setIsManualModalOpen(false)}
+              style={{ position: 'absolute', top: '1.25rem', right: '1.25rem', background: 'none', border: 'none', color: 'var(--color-gray-400)', cursor: 'pointer' }}
+            >
+              <X size={24} />
+            </button>
+            <h3 style={{ margin: '0 0 0.25rem', color: 'var(--color-primary)' }}>Reserva Manual</h3>
+            <p style={{ margin: '0 0 1.5rem', fontSize: '0.8rem', color: 'var(--color-gray-500)' }}>
+              Registrar turno para: <strong>{formatDateStringAR(selectedDate)}</strong>
+            </p>
+            <form onSubmit={handleAddManualReserva} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              <div className="input-group">
+                <label className="input-label">Alumno</label>
+                <select
+                  className="input-field"
+                  value={manualRes.alumno_nombre}
+                  onChange={(e) => setManualRes({ ...manualRes, alumno_nombre: e.target.value })}
+                  required
+                >
+                  <option value="">Seleccionar alumno</option>
+                  {allAlumnos.map(a => (
+                    <option key={a.id} value={a.nombre}>{a.nombre}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="input-group">
+                <label className="input-label">Horario</label>
+                <select
+                  className="input-field"
+                  value={manualRes.horario}
+                  onChange={(e) => setManualRes({ ...manualRes, horario: e.target.value })}
+                >
+                  {TURNOS.map(t => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+              </div>
+              <button
+                type="submit"
+                className="btn-primary"
+                disabled={isSavingManual}
+                style={{ padding: '1rem', opacity: isSavingManual ? 0.6 : 1 }}
+              >
+                {isSavingManual ? 'Guardando...' : 'Confirmar Reserva'}
+              </button>
+            </form>
           </div>
         </div>
       )}

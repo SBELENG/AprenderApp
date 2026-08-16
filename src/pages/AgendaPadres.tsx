@@ -211,12 +211,29 @@ const AgendaPadres: React.FC = () => {
         if (!alumnosData || alumnosData.length === 0) return;
 
         const alumnoIds = alumnosData.map(a => a.id);
-        const { data: transData } = await supabase
+        const { data: transDataRaw } = await supabase
           .from('transacciones')
-          .select('monto, metodo')
-          .in('alumno_id', alumnoIds);
+          .select('id, monto, metodo, codigo_efectivo')
+          .in('alumno_id', alumnoIds)
+          .neq('metodo', 'Retiro de Caja'); // excluir retiros de caja
 
-        if (!transData || transData.length === 0) return;
+        if (!transDataRaw || transDataRaw.length === 0) return;
+
+        // DEDUPLICAR: si el mismo código MP aparece más de una vez, quedarse con una sola.
+        // Esto evita que un pago de Mercado Pago registrado dos veces cuente el doble.
+        const seenMPCodes = new Set<string>();
+        const seenIds = new Set<string>();
+        const transData = transDataRaw.filter(t => {
+          // Para MP: deduplicar por codigo_efectivo (que guarda el ID de MP)
+          if (t.metodo === 'Mercado Pago' && t.codigo_efectivo) {
+            if (seenMPCodes.has(t.codigo_efectivo)) return false;
+            seenMPCodes.add(t.codigo_efectivo);
+          }
+          // Siempre deduplicar por id de transacción
+          if (seenIds.has(t.id)) return false;
+          seenIds.add(t.id);
+          return true;
+        });
 
         // Calcular turnos totales en base a los montos pagados
         // Plan hora = $7000, semana = $35000 (5 turnos), mes = $130000 (20 turnos)
@@ -230,7 +247,7 @@ const AgendaPadres: React.FC = () => {
           } else if (monto % 35000 === 0 || (monto >= 31500 && monto % (35000 * 0.9) < 500)) {
             totalShifts += 5 * Math.round(monto / 31500);
           } else {
-            // Plan hora: $7000 por hora (o $6300 con descuento)
+            // Plan hora: $7000 por hora
             totalShifts += Math.max(1, Math.round(monto / 7000));
           }
         });
@@ -511,10 +528,11 @@ const AgendaPadres: React.FC = () => {
     return new Date(currentYear, currentMonth, day).getDay() === 0;
   };
 
+  // Solo bloquear días estrictamente anteriores a hoy (hoy queda habilitado)
   const isPastOrToday = (day: number) => {
     const d = new Date(currentYear, currentMonth, day);
     const t = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    return d.getTime() <= t.getTime();
+    return d.getTime() < t.getTime();
   };
 
   // Turnos disponibles según el día seleccionado (por hora exacta)
