@@ -12,6 +12,7 @@ import Contabilidad from './pages/Contabilidad';
 import Maestras from './pages/Maestras';
 import EvolucionAlumnos from './pages/EvolucionAlumnos';
 import ConfiguracionAdmin from './pages/ConfiguracionAdmin';
+import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
   return (
@@ -23,13 +24,15 @@ function App() {
         <Route path="/pago" element={<Pago />} />
         <Route path="/ficha" element={<Ficha />} />
         <Route path="/agenda" element={<AgendaPadres />} />
+        
+        {/* Rutas protegidas para Administradores */}
         <Route path="/admin" element={<Navigate to="/admin/asistencia" replace />} />
-        <Route path="/admin/agenda" element={<AgendaAdmin />} />
-        <Route path="/admin/asistencia" element={<AsistenciaAdmin />} />
-        <Route path="/admin/contabilidad" element={<Contabilidad />} />
-        <Route path="/admin/maestras" element={<Maestras />} />
-        <Route path="/admin/evolucion" element={<EvolucionAlumnos />} />
-        <Route path="/admin/configuracion" element={<ConfiguracionAdmin />} />
+        <Route path="/admin/agenda" element={<ProtectedRoute><AgendaAdmin /></ProtectedRoute>} />
+        <Route path="/admin/asistencia" element={<ProtectedRoute><AsistenciaAdmin /></ProtectedRoute>} />
+        <Route path="/admin/contabilidad" element={<ProtectedRoute><Contabilidad /></ProtectedRoute>} />
+        <Route path="/admin/maestras" element={<ProtectedRoute><Maestras /></ProtectedRoute>} />
+        <Route path="/admin/evolucion" element={<ProtectedRoute><EvolucionAlumnos /></ProtectedRoute>} />
+        <Route path="/admin/configuracion" element={<ProtectedRoute><ConfiguracionAdmin /></ProtectedRoute>} />
       </Routes>
     </Router>
   );

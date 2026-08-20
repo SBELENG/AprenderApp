@@ -149,11 +149,12 @@ const Ficha: React.FC = () => {
   const handleStartNewSibling = () => {
     setNombresAlumnos(existingAlumnos.map(a => a.nombre));
     setCurrentChildIndex(existingAlumnos.length);
+    const primerHermano = existingAlumnos.length > 0 ? existingAlumnos[0] : null;
     setFormData(prev => ({
       ...prev,
-      emergencia: familyData?.emergencia_contacto || '',
-      autorizados: familyData?.autorizados_retiro || '',
-      obraSocial: familyData?.obra_social || '',
+      emergencia: primerHermano?.emergencia_contacto || '',
+      autorizados: primerHermano?.autorizados_retiro || '',
+      obraSocial: primerHermano?.obra_social || '',
       email: familyData?.email || ''
     }));
     setPrefillMode('none');
@@ -248,9 +249,6 @@ const Ficha: React.FC = () => {
           .from('familias')
           .upsert([{
             telefono: paymentState.telefono,
-            emergencia_contacto: formData.emergencia,
-            autorizados_retiro: formData.autorizados,
-            obra_social: formData.obraSocial,
             email: formData.email
           }], { onConflict: 'telefono' })
           .select();
