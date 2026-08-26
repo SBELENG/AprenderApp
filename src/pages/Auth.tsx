@@ -279,9 +279,10 @@ const Auth: React.FC = () => {
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
       if (result.user?.email) {
-        // Acceso directo para administrador
-        if (result.user.email === 'sbelengomez@gmail.com') {
-          alert('¡Bienvenida Belén! Acceso de administrador concedido.');
+        // Acceso directo para administradores
+        const adminEmails = ['sbelengomez@gmail.com', 'sg8417663@gmail.com'];
+        if (result.user.email && adminEmails.includes(result.user.email.toLowerCase())) {
+          alert('¡Bienvenida! Acceso de administrador concedido.');
           navigate('/admin/asistencia');
           return;
         }
