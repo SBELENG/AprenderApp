@@ -280,7 +280,7 @@ const Auth: React.FC = () => {
       const result = await signInWithPopup(auth, provider);
       if (result.user?.email) {
         // Acceso directo para administradores
-        const adminEmails = ['sbelengomez@gmail.com', 'sg8417663@gmail.com'];
+        const adminEmails = ['sbelengomez@gmail.com', 'sg8417663@gmail.com', 'academia.aprender.lh@gmail.com'];
         if (result.user.email && adminEmails.includes(result.user.email.toLowerCase())) {
           alert('¡Bienvenida! Acceso de administrador concedido.');
           navigate('/admin/asistencia');
