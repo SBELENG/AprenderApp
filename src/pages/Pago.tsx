@@ -12,6 +12,7 @@ const Pago: React.FC = () => {
   const [code, setCode] = useState('');
   const [refCode, setRefCode] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [montoTransferido, setMontoTransferido] = useState<number | ''>('');
 
   if (!state) {
     navigate('/contratar');
@@ -32,7 +33,7 @@ const Pago: React.FC = () => {
       setTimeout(() => {
         setIsProcessing(false);
         alert(`Transferencia notificada con el comprobante: ${refCode}. Por favor continúa.`);
-        navigate('/ficha', { state: { ...state, metodo: 'Mercado Pago', codigo_efectivo: 'MP-' + refCode } });
+        navigate('/ficha', { state: { ...state, total: montoTransferido, metodo: 'Mercado Pago', codigo_efectivo: 'MP-' + refCode } });
       }, 2000);
     } else {
       // Validar código de efectivo (8 caracteres) en base de datos de Supabase
@@ -156,8 +157,22 @@ const Pago: React.FC = () => {
                 </button>
               </div>
               <p style={{ fontSize: '0.8rem', color: 'var(--color-gray-500)', marginTop: '0.75rem', marginBottom: 0 }}>
-                1. Copia el alias y transfiere <b>${state.total.toLocaleString()}</b> desde tu app bancaria o MP.
+                1. Copia el alias y transfiere el monto deseado desde tu app bancaria o MP.
               </p>
+              
+              <div className="input-group" style={{ marginTop: '1.25rem' }}>
+                <label className="input-label" style={{ color: 'var(--color-primary)', fontWeight: 'bold' }}>Monto Exacto Transferido ($)</label>
+                <input 
+                  type="number" 
+                  className="input-field" 
+                  value={montoTransferido}
+                  onChange={(e) => setMontoTransferido(e.target.value ? Number(e.target.value) : '')}
+                  required
+                  min={1000}
+                  style={{ background: 'white', fontWeight: 'bold', color: 'var(--color-secondary)' }}
+                />
+              </div>
+
               <div className="input-group" style={{ marginTop: '1.25rem' }}>
                 <label className="input-label" style={{ color: 'var(--color-primary)', fontWeight: 'bold' }}>Número de Operación / Comprobante MP</label>
                 <input 
